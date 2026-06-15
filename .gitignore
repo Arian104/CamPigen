@@ -42,3 +42,24 @@ staticfiles/
 
 # Logs
 *.log
+# env
+.env
+
+# database
+db.sqlite3
+celerybeat-schedule.db
+
+# backups / secrets
+smtp_backup.json
+
+# python cache
+__pycache__/
+*.pyc
+
+# frontend build junk (if any later)
+node_modules/
+dist/
+
+# media
+media/
+staticfiles/
