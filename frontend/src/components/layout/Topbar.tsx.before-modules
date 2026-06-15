@@ -1,0 +1,199 @@
+"use client";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { Building2, LogOut, Moon, Sun, User } from "lucide-react";
+
+import { useOrganization } from "@/components/organization-context";
+import { usePlatform } from "@/components/platform-context";
+import { AccountProfile } from "@/types/account";
+import {
+  applyAccountPersonalization,
+  applyThemeMode,
+  resolveThemeMode,
+} from "@/lib/personalization";
+
+import styles from "./Topbar.module.css";
+
+type TopbarProps = {
+  account: AccountProfile | null;
+  mounted: boolean;
+  onAccountUpdated: (profile: AccountProfile) => void;
+};
+
+function mediaUrl(value?: string | null) {
+  if (!value) return "";
+
+  if (value.startsWith("http://") || value.startsWith("https://")) {
+    return value;
+  }
+
+  const apiBase =
+    process.env.NEXT_PUBLIC_API_BASE_URL ||
+    (typeof window !== "undefined"
+      ? window.localStorage.getItem("platform_api_base") || "http://127.0.0.1:8000/api"
+      : "http://127.0.0.1:8000/api");
+
+  const backendBase = apiBase.replace(/\/api\/?$/, "").replace(/\/$/, "");
+
+  return `${backendBase}${value.startsWith("/") ? value : `/${value}`}`;
+}
+
+export function Topbar({ account, mounted, onAccountUpdated }: TopbarProps) {
+  const router = useRouter();
+  const { username, logout, request } = usePlatform();
+
+  const {
+    organizations,
+    activeOrganization,
+    switchOrganization,
+    loadingOrganizations,
+  } = useOrganization();
+
+  const [themePreference, setThemePreference] = useState<"system" | "light" | "dark">("system");
+
+  const resolvedTheme = useMemo(() => {
+    return resolveThemeMode(themePreference);
+  }, [themePreference]);
+
+  /**
+   * Hydration-safe theme display.
+   * Before mounted, server and client must render the same values.
+   */
+  const safeResolvedTheme = mounted ? resolvedTheme : "light";
+  const safeThemeTitle =
+    safeResolvedTheme === "dark" ? "Switch to light mode" : "Switch to dark mode";
+  const safeThemeLabel = safeResolvedTheme === "dark" ? "Light" : "Dark";
+
+  const visibleName =
+    account?.display_name ||
+    `${account?.first_name || ""} ${account?.last_name || ""}`.trim() ||
+    account?.username ||
+    account?.email ||
+    username ||
+    "User";
+
+  async function toggleTheme() {
+    const nextTheme = safeResolvedTheme === "dark" ? "light" : "dark";
+
+    setThemePreference(nextTheme);
+    applyThemeMode(nextTheme);
+
+    const result = await request("/v1/accounts/me/preferences/", {
+      method: "PATCH",
+      body: JSON.stringify({
+        theme_mode: nextTheme,
+      }),
+    });
+
+    if (result.ok && result.body) {
+      const profile = {
+        ...(account || {}),
+        ...(result.body as Partial<AccountProfile>),
+      } as AccountProfile;
+
+      onAccountUpdated(profile);
+      applyAccountPersonalization(profile);
+    }
+  }
+
+  function handleLogout() {
+    logout();
+
+    window.localStorage.removeItem("platform_access_token");
+    window.localStorage.removeItem("platform_refresh_token");
+    window.localStorage.removeItem("platform_username");
+    window.localStorage.removeItem("access");
+    window.localStorage.removeItem("refresh");
+    window.localStorage.removeItem("user");
+
+    router.replace("/login");
+  }
+
+  useEffect(() => {
+    if (account?.theme_mode) {
+      setThemePreference(account.theme_mode);
+    }
+  }, [account?.theme_mode]);
+
+  return (
+    <header className={styles.topbar}>
+      <div className={styles.brandArea}>
+        <Link href="/" className={styles.brand}>
+          <div className={styles.brandMark}>EP</div>
+
+          <div className={styles.brandText}>
+            <strong>Email Platform</strong>
+            <span>Enterprise Suite</span>
+          </div>
+        </Link>
+      </div>
+
+      <div className={styles.workspace}>
+        <div className={styles.orgLogo}>
+          <Building2 size={20} />
+        </div>
+
+        <div className={styles.orgInfo}>
+          <span className={styles.label}>Workspace</span>
+
+          <select
+            value={mounted ? activeOrganization?.id ?? "" : ""}
+            onChange={(event) => {
+              void switchOrganization(event.target.value);
+            }}
+            disabled={!mounted || loadingOrganizations || organizations.length === 0}
+            className={styles.orgSelect}
+            suppressHydrationWarning
+          >
+            {!mounted || organizations.length === 0 ? (
+              <option value="">No organization</option>
+            ) : (
+              organizations.map((org) => (
+                <option key={org.id} value={org.id}>
+                  {org.name} ({org.role})
+                </option>
+              ))
+            )}
+          </select>
+        </div>
+      </div>
+
+      <div className={styles.right}>
+        <button
+          type="button"
+          className={styles.themeButton}
+          onClick={() => void toggleTheme()}
+          aria-label="Toggle theme"
+          title={safeThemeTitle}
+          suppressHydrationWarning
+        >
+          {safeResolvedTheme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+          <span>{safeThemeLabel}</span>
+        </button>
+
+        <Link href="/account" className={styles.profile}>
+          <div className={styles.avatar}>
+            {mounted && account?.avatar_display_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={mediaUrl(account.avatar_display_url)} alt="Profile" />
+            ) : (
+              <User size={18} />
+            )}
+          </div>
+
+          <div className={styles.userMeta}>
+            <span className={styles.label}>Signed in as</span>
+            <strong suppressHydrationWarning>{mounted ? visibleName : "User"}</strong>
+          </div>
+        </Link>
+
+        <button type="button" className={styles.logoutButton} onClick={handleLogout}>
+          <LogOut size={17} />
+          <span>Logout</span>
+        </button>
+      </div>
+    </header>
+  );
+}

@@ -1,0 +1,238 @@
+/* =========================================================
+   SMTP MODULE
+   SMTP form, SMTP cards, health, limits.
+========================================================= */
+
+.page {
+  display: grid;
+  gap: 22px;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 330px;
+  gap: 18px;
+}
+
+.sideCard {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+}
+
+.guide {
+  display: flex;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 18px;
+  color: var(--text-soft);
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+}
+
+.guide svg {
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.cardGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.poolCard {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border-radius: 24px;
+  background: var(--surface-solid);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+
+.poolHeader,
+.poolFooter {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.poolFooter {
+  align-items: center;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.metaGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.metaItem {
+  padding: 12px;
+  border-radius: 16px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+}
+
+.limitBars {
+  display: grid;
+  gap: 10px;
+}
+
+.limitTrack {
+  height: 9px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--border);
+}
+
+.limitTrack span {
+  height: 100%;
+  display: block;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--primary), color-mix(in srgb, var(--primary) 65%, #10b981));
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.toggleRow {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 1180px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .cardGrid,
+  .metaGrid,
+  .formGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .cardGrid,
+  .metaGrid,
+  .formGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .poolFooter {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+/* Remaining SMTP classes */
+.statGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.statItem {
+  padding: 18px;
+  border-radius: 22px;
+  background: var(--surface-solid);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+
+.statItem span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.statItem strong {
+  color: var(--text);
+  font-size: 1.6rem;
+}
+
+.settingsForm {
+  display: grid;
+  gap: 18px;
+}
+
+.smtpTable {
+  min-width: 1060px;
+}
+
+.usage {
+  display: grid;
+  gap: 8px;
+  min-width: 140px;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 760px) {
+  .statGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* =========================================================
+   PAGE BUTTON COLOR NORMALIZER
+========================================================= */
+
+:global(.primaryButton),
+:global(.buttonLink),
+:global(button.primaryButton) {
+  color: #ffffff !important;
+  background: linear-gradient(135deg, var(--primary), #2563eb) !important;
+  border: 0 !important;
+  box-shadow: 0 12px 26px color-mix(in srgb, var(--primary) 22%, transparent) !important;
+}
+
+:global(.primaryButton:hover),
+:global(.buttonLink:hover),
+:global(button.primaryButton:hover) {
+  color: #ffffff !important;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--primary) 88%, #000000),
+    #1d4ed8
+  ) !important;
+}
+
+:global(.secondaryButton),
+:global(.ghostButton),
+:global(.smallButton) {
+  color: var(--text-soft) !important;
+  background: var(--surface-solid) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: none !important;
+}
+
+:global(.secondaryButton:hover),
+:global(.ghostButton:hover),
+:global(.smallButton:hover) {
+  color: var(--primary) !important;
+  background: var(--primary-soft) !important;
+}
+
+:global(.dangerButton) {
+  color: #ffffff !important;
+  background: var(--danger) !important;
+}
+
+:global(.dangerSmall) {
+  color: var(--danger) !important;
+  background: var(--danger-soft) !important;
+}

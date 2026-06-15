@@ -1,0 +1,802 @@
+"use client";
+
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import {
+  Activity,
+  Camera,
+  CheckCircle2,
+  Clock3,
+  ImageUp,
+  KeyRound,
+  Laptop,
+  MailCheck,
+  Palette,
+  Save,
+  Send,
+  ShieldCheck,
+  ShieldX,
+  Trash2,
+  User,
+} from "lucide-react";
+
+import { usePlatform } from "@/components/platform-context";
+import { AccountActivity, AccountProfile, AccountSession } from "@/types/account";
+import { removeAccountAvatar, uploadAccountAvatar } from "@/lib/account-api";
+import { applyAccountPersonalization } from "@/lib/personalization";
+
+type AccountTab = "profile" | "security" | "sessions" | "activity";
+
+const emptyProfile: AccountProfile = {
+  id: "",
+  username: "",
+  email: "",
+  first_name: "",
+  last_name: "",
+  display_name: "",
+  phone: "",
+  job_title: "",
+  department: "",
+  avatar: null,
+  avatar_url: "",
+  avatar_display_url: "",
+  email_verified: false,
+  timezone: "Asia/Dhaka",
+  language: "en",
+  date_format: "MMM D, YYYY",
+  time_format: "12h",
+  theme_mode: "system",
+  accent_color: "#4f46e5",
+  sidebar_collapsed: false,
+  default_dashboard: "/",
+  preferences: {},
+  notification_preferences: {},
+  active_organization: null,
+  active_organization_detail: null,
+  is_staff: false,
+};
+
+function mediaUrl(value?: string | null) {
+  if (!value) return "";
+
+  if (value.startsWith("http://") || value.startsWith("https://")) {
+    return value;
+  }
+
+  const apiBase =
+    process.env.NEXT_PUBLIC_API_BASE_URL ||
+    (typeof window !== "undefined"
+      ? window.localStorage.getItem("platform_api_base") || "http://127.0.0.1:8000/api"
+      : "http://127.0.0.1:8000/api");
+
+  const backendBase = apiBase.replace(/\/api\/?$/, "").replace(/\/$/, "");
+
+  return `${backendBase}${value.startsWith("/") ? value : `/${value}`}`;
+}
+
+function formatDate(value?: string | null) {
+  if (!value) return "-";
+
+  try {
+    return new Date(value).toLocaleString();
+  } catch {
+    return "-";
+  }
+}
+
+function niceAction(value: string) {
+  return value.replaceAll("_", " ");
+}
+
+export default function AccountPage() {
+  const { request } = usePlatform();
+
+  const [activeTab, setActiveTab] = useState<AccountTab>("profile");
+
+  const [profile, setProfile] = useState<AccountProfile>(emptyProfile);
+  const [sessions, setSessions] = useState<AccountSession[]>([]);
+  const [activityRows, setActivityRows] = useState<AccountActivity[]>([]);
+
+  const [loading, setLoading] = useState(true);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [savingSecurity, setSavingSecurity] = useState(false);
+
+  const [message, setMessage] = useState("Manage your profile, security, sessions, and preferences.");
+
+  const [oldPassword, setOldPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [newPasswordConfirm, setNewPasswordConfirm] = useState("");
+
+  const visibleName = useMemo(() => {
+    return (
+      profile.display_name ||
+      `${profile.first_name || ""} ${profile.last_name || ""}`.trim() ||
+      profile.username ||
+      profile.email ||
+      "User"
+    );
+  }, [profile]);
+
+  const profileCompletion = useMemo(() => {
+    const fields = [
+      profile.first_name,
+      profile.last_name,
+      profile.display_name,
+      profile.phone,
+      profile.job_title,
+      profile.department,
+      profile.avatar_display_url,
+      profile.timezone,
+      profile.language,
+    ];
+
+    const completed = fields.filter(Boolean).length;
+    return Math.round((completed / fields.length) * 100);
+  }, [profile]);
+
+  async function loadProfile() {
+    const result = await request("/v1/accounts/me/");
+
+    if (result.ok && result.body) {
+      setProfile({ ...emptyProfile, ...(result.body as AccountProfile) });
+    } else {
+      setMessage("Could not load account profile.");
+    }
+  }
+
+  async function loadSessions() {
+    const result = await request("/v1/accounts/sessions/");
+
+    if (result.ok && Array.isArray(result.body)) {
+      setSessions(result.body as AccountSession[]);
+    }
+  }
+
+  async function loadActivity() {
+    const result = await request("/v1/accounts/activity/");
+
+    if (result.ok && Array.isArray(result.body)) {
+      setActivityRows(result.body as AccountActivity[]);
+    }
+  }
+
+  async function loadAll() {
+    setLoading(true);
+    await Promise.all([loadProfile(), loadSessions(), loadActivity()]);
+    setLoading(false);
+  }
+
+  function updateField<K extends keyof AccountProfile>(key: K, value: AccountProfile[K]) {
+    setProfile((current) => ({
+      ...current,
+      [key]: value,
+    }));
+  }
+
+  async function saveProfile(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSavingProfile(true);
+
+    const payload = {
+      username: profile.username,
+      first_name: profile.first_name,
+      last_name: profile.last_name,
+      display_name: profile.display_name,
+      phone: profile.phone,
+      job_title: profile.job_title,
+      department: profile.department,
+      avatar_url: profile.avatar_url,
+      timezone: profile.timezone,
+      language: profile.language,
+      date_format: profile.date_format,
+      time_format: profile.time_format,
+      theme_mode: profile.theme_mode,
+      accent_color: profile.accent_color,
+      sidebar_collapsed: profile.sidebar_collapsed,
+      default_dashboard: profile.default_dashboard,
+      preferences: profile.preferences,
+      notification_preferences: profile.notification_preferences,
+    };
+
+    const result = await request("/v1/accounts/me/", {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
+
+    if (result.ok && result.body) {
+      const updatedProfile = { ...emptyProfile, ...(result.body as AccountProfile) };
+      setProfile(updatedProfile);
+      applyAccountPersonalization(updatedProfile);
+      setMessage("Profile updated successfully.");
+      await loadActivity();
+    } else {
+      setMessage(`Could not update profile: ${JSON.stringify(result.body)}`);
+    }
+
+    setSavingProfile(false);
+  }
+
+  async function uploadAvatar(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+
+    if (!file) return;
+
+    setMessage("Uploading avatar...");
+
+    const result = await uploadAccountAvatar(file);
+
+    if (result.ok && result.body) {
+      setProfile({ ...emptyProfile, ...(result.body as AccountProfile) });
+      setMessage("Avatar uploaded successfully.");
+      await loadActivity();
+    } else {
+      setMessage("Avatar upload failed. Use JPG, PNG, or WEBP under 2 MB.");
+    }
+
+    event.target.value = "";
+  }
+
+  async function deleteAvatar() {
+    const confirmed = window.confirm("Remove your profile picture?");
+    if (!confirmed) return;
+
+    const result = await removeAccountAvatar();
+
+    if (result.ok && result.body) {
+      setProfile({ ...emptyProfile, ...(result.body as AccountProfile) });
+      setMessage("Avatar removed.");
+      await loadActivity();
+    } else {
+      setMessage("Could not remove avatar.");
+    }
+  }
+
+  async function changePassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (newPassword !== newPasswordConfirm) {
+      setMessage("New password and confirmation do not match.");
+      return;
+    }
+
+    setSavingSecurity(true);
+
+    const result = await request("/v1/accounts/change-password/", {
+      method: "POST",
+      body: JSON.stringify({
+        old_password: oldPassword,
+        new_password: newPassword,
+        new_password_confirm: newPasswordConfirm,
+      }),
+    });
+
+    if (result.ok) {
+      setOldPassword("");
+      setNewPassword("");
+      setNewPasswordConfirm("");
+      setMessage("Password changed successfully.");
+      await loadProfile();
+      await loadActivity();
+    } else {
+      setMessage(`Password change failed: ${JSON.stringify(result.body)}`);
+    }
+
+    setSavingSecurity(false);
+  }
+
+  async function sendVerificationEmail() {
+    setSavingSecurity(true);
+
+    const result = await request("/v1/accounts/send-verification-email/", {
+      method: "POST",
+    });
+
+    if (result.ok) {
+      setMessage("Verification email sent.");
+    } else {
+      setMessage(`Could not send verification email: ${JSON.stringify(result.body)}`);
+    }
+
+    setSavingSecurity(false);
+  }
+
+  async function revokeSession(sessionId: string) {
+    const confirmed = window.confirm("Revoke this session?");
+    if (!confirmed) return;
+
+    const result = await request(`/v1/accounts/sessions/${sessionId}/revoke/`, {
+      method: "POST",
+    });
+
+    if (result.ok) {
+      setMessage("Session revoked.");
+      await loadSessions();
+      await loadActivity();
+    } else {
+      setMessage("Could not revoke session.");
+    }
+  }
+
+  useEffect(() => {
+    void loadAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  if (loading) {
+    return (
+      <main className="page">
+        <section className="card">
+          <h1>Account</h1>
+          <p className="muted">Loading account center...</p>
+        </section>
+      </main>
+    );
+  }
+
+  return (
+    <main className="page accountPage">
+      <section className="accountHero accountHeroModern">
+        <div>
+          <p className="eyebrow">Personal Workspace</p>
+          <h1>Account Center</h1>
+          <p>{message}</p>
+
+          <div className="accountHeroMeta">
+            <span>
+              <ShieldCheck size={15} />
+              {profile.email_verified ? "Email verified" : "Email not verified"}
+            </span>
+            <span>
+              <User size={15} />
+              {profile.active_organization_detail?.name || "No active organization"}
+            </span>
+            <span>
+              <Palette size={15} />
+              {profile.theme_mode} mode
+            </span>
+          </div>
+        </div>
+
+        <div className="accountAvatarCard">
+          <div className="accountAvatarPreview">
+            {profile.avatar_display_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={mediaUrl(profile.avatar_display_url)} alt="Profile avatar" />
+            ) : (
+              <User size={46} />
+            )}
+          </div>
+
+          <strong>{visibleName}</strong>
+          <span>{profile.email}</span>
+
+          <div className="accountAvatarActions">
+            <label className="smallButton avatarUploadButton">
+              <ImageUp size={14} />
+              Upload
+              <input type="file" accept="image/png,image/jpeg,image/webp" onChange={uploadAvatar} />
+            </label>
+
+            <button type="button" className="smallButton dangerSmall" onClick={deleteAvatar}>
+              <Trash2 size={14} />
+              Remove
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section className="accountOverviewGrid">
+        <article className="accountMiniCard">
+          <span>Profile Completion</span>
+          <strong>{profileCompletion}%</strong>
+          <div className="accountProgressBar">
+            <div style={{ width: `${profileCompletion}%` }} />
+          </div>
+        </article>
+
+        <article className="accountMiniCard">
+          <span>Email Status</span>
+          <strong>{profile.email_verified ? "Verified" : "Unverified"}</strong>
+          <small>{profile.email}</small>
+        </article>
+
+        <article className="accountMiniCard">
+          <span>Active Sessions</span>
+          <strong>{sessions.filter((session) => session.is_active).length}</strong>
+          <small>{sessions.length} total sessions</small>
+        </article>
+
+        <article className="accountMiniCard">
+          <span>Last Seen</span>
+          <strong>{formatDate(profile.last_seen_at)}</strong>
+          <small>{profile.last_login_ip || "No IP recorded"}</small>
+        </article>
+      </section>
+
+      <section className="card accountTabsCard">
+        <div className="accountTabs">
+          <button
+            type="button"
+            className={activeTab === "profile" ? "accountTab active" : "accountTab"}
+            onClick={() => setActiveTab("profile")}
+          >
+            <User size={16} />
+            Profile
+          </button>
+
+          <button
+            type="button"
+            className={activeTab === "security" ? "accountTab active" : "accountTab"}
+            onClick={() => setActiveTab("security")}
+          >
+            <ShieldCheck size={16} />
+            Security
+          </button>
+
+          <button
+            type="button"
+            className={activeTab === "sessions" ? "accountTab active" : "accountTab"}
+            onClick={() => setActiveTab("sessions")}
+          >
+            <Laptop size={16} />
+            Sessions
+          </button>
+
+          <button
+            type="button"
+            className={activeTab === "activity" ? "accountTab active" : "accountTab"}
+            onClick={() => setActiveTab("activity")}
+          >
+            <Activity size={16} />
+            Activity
+          </button>
+        </div>
+      </section>
+
+      {activeTab === "profile" ? (
+        <form className="accountGrid" onSubmit={saveProfile}>
+          <section className="card">
+            <div className="flexBetween">
+              <div>
+                <h2>Basic Information</h2>
+                <p className="muted">Update your visible profile details.</p>
+              </div>
+
+              {profile.email_verified ? (
+                <span className="statusPill active">
+                  <CheckCircle2 size={14} />
+                  Verified
+                </span>
+              ) : (
+                <span className="statusPill suspended">Unverified</span>
+              )}
+            </div>
+
+            <div className="settingsGridTwo">
+              <label className="formField">
+                <span>First Name</span>
+                <input value={profile.first_name || ""} onChange={(event) => updateField("first_name", event.target.value)} />
+              </label>
+
+              <label className="formField">
+                <span>Last Name</span>
+                <input value={profile.last_name || ""} onChange={(event) => updateField("last_name", event.target.value)} />
+              </label>
+
+              <label className="formField">
+                <span>Display Name</span>
+                <input value={profile.display_name || ""} onChange={(event) => updateField("display_name", event.target.value)} />
+              </label>
+
+              <label className="formField">
+                <span>Username</span>
+                <input value={profile.username || ""} onChange={(event) => updateField("username", event.target.value)} />
+              </label>
+
+              <label className="formField">
+                <span>Email</span>
+                <input value={profile.email || ""} disabled />
+              </label>
+
+              <label className="formField">
+                <span>Phone</span>
+                <input value={profile.phone || ""} onChange={(event) => updateField("phone", event.target.value)} />
+              </label>
+
+              <label className="formField">
+                <span>Job Title</span>
+                <input value={profile.job_title || ""} onChange={(event) => updateField("job_title", event.target.value)} />
+              </label>
+
+              <label className="formField">
+                <span>Department</span>
+                <input value={profile.department || ""} onChange={(event) => updateField("department", event.target.value)} />
+              </label>
+
+              <label className="formField">
+                <span>External Avatar URL</span>
+                <input value={profile.avatar_url || ""} onChange={(event) => updateField("avatar_url", event.target.value)} />
+              </label>
+
+              <label className="formField">
+                <span>Default Dashboard</span>
+                <input value={profile.default_dashboard || ""} onChange={(event) => updateField("default_dashboard", event.target.value)} />
+              </label>
+            </div>
+          </section>
+
+          <section className="card">
+            <h2>Personalization</h2>
+            <p className="muted">Control your dashboard appearance and personal defaults.</p>
+
+            <div className="settingsGridTwo">
+              <label className="formField">
+                <span>Theme Mode</span>
+                <select value={profile.theme_mode} onChange={(event) => updateField("theme_mode", event.target.value as AccountProfile["theme_mode"])}>
+                  <option value="system">System</option>
+                  <option value="light">Light</option>
+                  <option value="dark">Dark</option>
+                </select>
+              </label>
+
+              <label className="formField">
+                <span>Accent Color</span>
+                <input type="color" value={profile.accent_color || "#4f46e5"} onChange={(event) => updateField("accent_color", event.target.value)} />
+              </label>
+
+              <label className="formField">
+                <span>Timezone</span>
+                <input value={profile.timezone || ""} onChange={(event) => updateField("timezone", event.target.value)} />
+              </label>
+
+              <label className="formField">
+                <span>Language</span>
+                <input value={profile.language || ""} onChange={(event) => updateField("language", event.target.value)} />
+              </label>
+
+              <label className="formField">
+                <span>Date Format</span>
+                <input value={profile.date_format || ""} onChange={(event) => updateField("date_format", event.target.value)} />
+              </label>
+
+              <label className="formField">
+                <span>Time Format</span>
+                <select value={profile.time_format} onChange={(event) => updateField("time_format", event.target.value as AccountProfile["time_format"])}>
+                  <option value="12h">12 Hour</option>
+                  <option value="24h">24 Hour</option>
+                </select>
+              </label>
+
+              <label className="checkboxRow">
+                <input
+                  type="checkbox"
+                  checked={profile.sidebar_collapsed}
+                  onChange={(event) => updateField("sidebar_collapsed", event.target.checked)}
+                />
+                Collapse sidebar by default
+              </label>
+            </div>
+
+            <button type="submit" disabled={savingProfile}>
+              <Save size={16} />
+              {savingProfile ? "Saving..." : "Save Profile"}
+            </button>
+          </section>
+        </form>
+      ) : null}
+
+      {activeTab === "security" ? (
+        <section className="accountGrid">
+          <form className="card" onSubmit={changePassword}>
+            <div>
+              <h2>Change Password</h2>
+              <p className="muted">Use a strong password that you do not use elsewhere.</p>
+            </div>
+
+            <label className="formField">
+              <span>Current Password</span>
+              <input
+                type="password"
+                value={oldPassword}
+                onChange={(event) => setOldPassword(event.target.value)}
+                required
+              />
+            </label>
+
+            <label className="formField">
+              <span>New Password</span>
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(event) => setNewPassword(event.target.value)}
+                required
+              />
+            </label>
+
+            <label className="formField">
+              <span>Confirm New Password</span>
+              <input
+                type="password"
+                value={newPasswordConfirm}
+                onChange={(event) => setNewPasswordConfirm(event.target.value)}
+                required
+              />
+            </label>
+
+            <button type="submit" disabled={savingSecurity}>
+              <KeyRound size={16} />
+              {savingSecurity ? "Updating..." : "Change Password"}
+            </button>
+          </form>
+
+          <section className="card">
+            <div>
+              <h2>Email Verification</h2>
+              <p className="muted">Verify your email address for better account security.</p>
+            </div>
+
+            <div className="accountInfoBox">
+              <MailCheck size={20} />
+              <span>
+                Current status: <strong>{profile.email_verified ? "Verified" : "Unverified"}</strong>
+              </span>
+            </div>
+
+            {!profile.email_verified ? (
+              <button type="button" onClick={sendVerificationEmail} disabled={savingSecurity}>
+                <Send size={16} />
+                Send Verification Email
+              </button>
+            ) : null}
+
+            <div className="accountInfoBox">
+              <ShieldCheck size={20} />
+              <span>
+                Password last changed: <strong>{formatDate(profile.password_changed_at)}</strong>
+              </span>
+            </div>
+          </section>
+        </section>
+      ) : null}
+
+      {activeTab === "sessions" ? (
+        <section className="card">
+          <div className="flexBetween">
+            <div>
+              <h2>Account Sessions</h2>
+              <p className="muted">Review active and previous login sessions.</p>
+            </div>
+
+            <button type="button" className="secondaryButton" onClick={() => void loadSessions()}>
+              Refresh
+            </button>
+          </div>
+
+          <div className="tableWrap">
+            <table className="dataTable">
+              <thead>
+                <tr>
+                  <th>Device</th>
+                  <th>IP Address</th>
+                  <th>Status</th>
+                  <th>Last Activity</th>
+                  <th>Created</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {sessions.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="centerText muted">
+                      No sessions found.
+                    </td>
+                  </tr>
+                ) : (
+                  sessions.map((session) => (
+                    <tr key={session.id}>
+                      <td>
+                        <strong>
+                          <Laptop size={14} /> {session.device_name || "Unknown device"}
+                        </strong>
+                        <span>
+                          {session.browser || "-"} · {session.os || "-"}
+                        </span>
+                      </td>
+
+                      <td>{session.ip_address || "-"}</td>
+
+                      <td>
+                        <span className={session.is_active ? "statusPill active" : "statusPill suspended"}>
+                          {session.is_active ? "Active" : "Inactive"}
+                        </span>
+                      </td>
+
+                      <td>{formatDate(session.last_activity_at)}</td>
+                      <td>{formatDate(session.created_at)}</td>
+
+                      <td>
+                        {session.is_active ? (
+                          <button
+                            type="button"
+                            className="smallButton dangerSmall"
+                            onClick={() => void revokeSession(session.id)}
+                          >
+                            <ShieldX size={14} />
+                            Revoke
+                          </button>
+                        ) : (
+                          <span className="muted">Revoked</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
+
+      {activeTab === "activity" ? (
+        <section className="card">
+          <div className="flexBetween">
+            <div>
+              <h2>Account Activity</h2>
+              <p className="muted">Recent security and account actions.</p>
+            </div>
+
+            <button type="button" className="secondaryButton" onClick={() => void loadActivity()}>
+              Refresh
+            </button>
+          </div>
+
+          <div className="accountTimeline">
+            {activityRows.length === 0 ? (
+              <p className="muted">No activity found.</p>
+            ) : (
+              activityRows.map((row) => (
+                <article key={row.id} className="accountTimelineItem">
+                  <div className="accountTimelineIcon">
+                    <Activity size={17} />
+                  </div>
+
+                  <div>
+                    <strong>{niceAction(row.action)}</strong>
+                    <p>{row.description || "No description."}</p>
+
+                    <div className="accountTimelineMeta">
+                      <span>
+                        <Clock3 size={13} />
+                        {formatDate(row.created_at)}
+                      </span>
+                      <span>{row.organization_name || "No organization"}</span>
+                      <span>{row.ip_address || "No IP"}</span>
+                    </div>
+                  </div>
+                </article>
+              ))
+            )}
+          </div>
+        </section>
+      ) : null}
+
+      <section className="accountQuickLinks">
+        <Link href="/settings/organization" className="tileLink">
+          <strong>Organization Settings</strong>
+          <span>Manage company branding, logo, sender defaults, and compliance.</span>
+        </Link>
+
+        <Link href="/webhooks" className="tileLink">
+          <strong>Webhook Center</strong>
+          <span>Connect events to CRM, Slack, Zapier, Make, or dashboards.</span>
+        </Link>
+
+        <Link href="/smtp" className="tileLink">
+          <strong>SMTP Management</strong>
+          <span>Manage sender infrastructure and provider health.</span>
+        </Link>
+      </section>
+    </main>
+  );
+}

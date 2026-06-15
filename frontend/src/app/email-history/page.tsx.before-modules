@@ -1,0 +1,94 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
+import { usePlatform } from "@/components/platform-context";
+import { useOrganization } from "@/components/organization-context";
+
+type EmailJob = {
+  id: string | number;
+  recipient_email?: string;
+  subject_snapshot?: string;
+  status?: string;
+  scheduled_at?: string;
+  sent_at?: string;
+};
+
+export default function EmailHistoryPage() {
+  const { request } = usePlatform();
+  const { activeOrganization } = useOrganization();
+
+  const [jobs, setJobs] = useState<EmailJob[]>([]);
+  const [message, setMessage] = useState("No email job activity yet.");
+
+  async function loadJobs() {
+    const result = await request("/v1/email-jobs/");
+
+    if (result.ok) {
+      const data = result.body as { results?: EmailJob[] } | EmailJob[];
+      const rows = Array.isArray(data) ? data : data.results ?? [];
+      setJobs(rows);
+      setMessage(`Loaded ${rows.length} email jobs.`);
+    } else {
+      setMessage("Failed to load email jobs.");
+    }
+  }
+
+  useEffect(() => {
+    if (!activeOrganization) return;
+    void loadJobs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeOrganization?.id]);
+
+  return (
+    <main className="page">
+      <section className="card">
+        <h1>Email History</h1>
+        <p className="muted">
+          Track sent, queued, and failed email jobs with full payload visibility.
+        </p>
+        <p className="muted">{message}</p>
+      </section>
+
+      <section className="card">
+        <h2>Delivery Timeline</h2>
+        <div className="tableWrap">
+          <table className="dataTable">
+            <thead>
+              <tr>
+                <th>Recipient</th>
+                <th>Subject</th>
+                <th>Status</th>
+                <th>Scheduled</th>
+                <th>Sent</th>
+              </tr>
+            </thead>
+            <tbody>
+              {jobs.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="muted centerText">
+                    No email jobs found.
+                  </td>
+                </tr>
+              ) : (
+                jobs.map((job) => (
+                  <tr key={String(job.id)}>
+                    <td>{job.recipient_email ?? "-"}</td>
+                    <td>{job.subject_snapshot ?? "-"}</td>
+                    <td>{job.status ?? "-"}</td>
+                    <td>
+                      {job.scheduled_at
+                        ? new Date(job.scheduled_at).toLocaleString()
+                        : "-"}
+                    </td>
+                    <td>{job.sent_at ? new Date(job.sent_at).toLocaleString() : "-"}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  );
+}

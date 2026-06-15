@@ -1,0 +1,293 @@
+/* =========================================================
+   TOPBAR MODULE
+   Full-width top navigation.
+========================================================= */
+
+.topbar {
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: var(--topbar-height);
+  min-height: var(--topbar-height);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 12px 22px;
+  background: color-mix(in srgb, var(--surface-solid) 92%, transparent);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+}
+
+.brandArea {
+  width: calc(var(--sidebar-width) - 10px);
+  flex: 0 0 auto;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.brandMark {
+  width: 46px;
+  height: 46px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  color: #ffffff;
+  font-weight: 900;
+  background: linear-gradient(135deg, var(--primary), #2563eb);
+  box-shadow: 0 16px 36px color-mix(in srgb, var(--primary) 35%, transparent);
+}
+
+.brandText {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+  min-width: 0;
+}
+
+.brandText strong {
+  color: var(--text);
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+.brandText span {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.workspace {
+  flex: 1;
+  min-width: 260px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.orgLogo {
+  width: 46px;
+  height: 46px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  color: var(--primary);
+  background: var(--primary-soft);
+  border: 1px solid var(--border);
+}
+
+.orgInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 260px;
+}
+
+.label {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.orgSelect {
+  width: 100%;
+  height: 40px;
+  border-radius: 14px;
+  padding: 0 12px;
+  color: var(--text);
+  font-weight: 800;
+  background: var(--surface-solid);
+  border: 1px solid var(--border);
+}
+
+.right {
+  margin-left: auto;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.themeButton,
+.profile,
+.logoutButton {
+  height: 48px;
+}
+
+.themeButton,
+.profile {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-soft);
+  background: var(--surface-solid);
+  border: 1px solid var(--border);
+  box-shadow: none;
+}
+
+.themeButton {
+  padding: 0 16px;
+  border-radius: 999px;
+}
+
+.profile {
+  padding: 0 16px 0 8px;
+  border-radius: 999px;
+  color: var(--text);
+  text-decoration: none;
+  transition: 0.18s ease;
+}
+
+.themeButton:hover,
+.profile:hover {
+  background: var(--primary-soft);
+  color: var(--primary);
+  transform: translateY(-1px);
+}
+
+.avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  color: #ffffff;
+  background: linear-gradient(135deg, #111827, #334155);
+}
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.userMeta {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+
+.userMeta strong {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.logoutButton {
+  padding: 0 18px;
+  border-radius: 16px;
+  color: var(--surface-solid);
+  background: var(--text);
+  box-shadow: none;
+}
+
+:global(html[data-theme="dark"]) .logoutButton {
+  color: #ffffff;
+  background: #334155;
+}
+
+@media (max-width: 760px) {
+  .topbar {
+    height: var(--topbar-height);
+    min-height: var(--topbar-height);
+    padding: 8px 10px;
+    gap: 8px;
+    flex-wrap: nowrap;
+  }
+
+  .brandArea {
+    width: auto;
+  }
+
+  .brandText {
+    display: none;
+  }
+
+  .brandMark {
+    width: 42px;
+    height: 42px;
+    border-radius: 15px;
+    font-size: 0.9rem;
+  }
+
+  .workspace {
+    min-width: 0;
+    flex: 1 1 auto;
+    gap: 8px;
+  }
+
+  .orgLogo,
+  .label {
+    display: none;
+  }
+
+  .orgInfo {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .orgSelect {
+    height: 42px;
+    font-size: 0.82rem;
+    padding-inline: 10px;
+  }
+
+  .right {
+    width: auto;
+    margin-left: 0;
+    gap: 6px;
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+  }
+
+  .themeButton,
+  .logoutButton,
+  .profile {
+    width: 42px;
+    height: 42px;
+    min-width: 42px;
+    padding: 0;
+    border-radius: 14px;
+  }
+
+  .themeButton span,
+  .logoutButton span,
+  .userMeta {
+    display: none;
+  }
+
+  .avatar {
+    width: 32px;
+    height: 32px;
+  }
+}
+.brandLogo {
+  width: 46px;
+  height: 46px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  background: var(--surface-solid);
+  border: 1px solid var(--border);
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+
+.brandLogo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 6px;
+}

@@ -1,0 +1,226 @@
+"use client";
+
+import Link from "next/link";
+import { FormEvent, useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  ArrowRight,
+  Building2,
+  CheckCircle2,
+  LockKeyhole,
+  Mail,
+  Sparkles,
+  User,
+} from "lucide-react";
+
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000/api";
+
+export default function RegisterPage() {
+  const router = useRouter();
+
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+
+  const [password, setPassword] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState("");
+
+  const [message, setMessage] = useState("Create your workspace and start managing email operations.");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    setLoading(true);
+    setError("");
+    setMessage("");
+
+    const response = await fetch(`${API_BASE.replace(/\/$/, "")}/v1/accounts/register/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        first_name: firstName,
+        last_name: lastName,
+        username,
+        email,
+        password,
+        password_confirm: passwordConfirm,
+      }),
+    });
+
+    const body = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      setError(JSON.stringify(body) || "Registration failed.");
+      setLoading(false);
+      return;
+    }
+
+    setMessage("Account created. Check your email for verification, then sign in.");
+    setLoading(false);
+
+    setTimeout(() => {
+      router.push("/login");
+    }, 1800);
+  }
+
+  return (
+    <main className="authPage">
+      <section className="authShell reverse">
+        <aside className="authBrandPanel">
+          <div className="authBrandTop">
+            <div className="brandMark authBrandMark">EP</div>
+            <div>
+              <strong>Email Platform</strong>
+              <span>Create your SaaS workspace</span>
+            </div>
+          </div>
+
+          <div className="authBrandContent">
+            <div className="authBadge">
+              <Sparkles size={15} />
+              New organization ready
+            </div>
+
+            <h1>Start with your account, then build your organization workspace.</h1>
+
+            <p>
+              Registration creates your user profile, default organization, and owner access.
+              Email verification can be completed after signup.
+            </p>
+          </div>
+
+          <div className="authFeatureList">
+            <div>
+              <CheckCircle2 size={18} />
+              <span>Default organization auto-created</span>
+            </div>
+            <div>
+              <CheckCircle2 size={18} />
+              <span>Owner role assigned automatically</span>
+            </div>
+            <div>
+              <CheckCircle2 size={18} />
+              <span>Profile and personalization ready</span>
+            </div>
+          </div>
+        </aside>
+
+        <section className="authFormPanel">
+          <div className="authFormHeader">
+            <div className="authIcon">
+              <Building2 size={24} />
+            </div>
+
+            <div>
+              <p className="eyebrow">Get Started</p>
+              <h2>Create your account</h2>
+              <p className="muted">{message}</p>
+            </div>
+          </div>
+
+          <form className="authForm" onSubmit={onSubmit}>
+            <div className="authTwoCol">
+              <label className="authInputField">
+                <span>First Name</span>
+                <div>
+                  <User size={18} />
+                  <input
+                    value={firstName}
+                    onChange={(event) => setFirstName(event.target.value)}
+                    placeholder="First name"
+                  />
+                </div>
+              </label>
+
+              <label className="authInputField">
+                <span>Last Name</span>
+                <div>
+                  <User size={18} />
+                  <input
+                    value={lastName}
+                    onChange={(event) => setLastName(event.target.value)}
+                    placeholder="Last name"
+                  />
+                </div>
+              </label>
+            </div>
+
+            <label className="authInputField">
+              <span>Username</span>
+              <div>
+                <User size={18} />
+                <input
+                  value={username}
+                  onChange={(event) => setUsername(event.target.value)}
+                  placeholder="username"
+                  required
+                />
+              </div>
+            </label>
+
+            <label className="authInputField">
+              <span>Email Address</span>
+              <div>
+                <Mail size={18} />
+                <input
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="you@example.com"
+                  type="email"
+                  required
+                />
+              </div>
+            </label>
+
+            <div className="authTwoCol">
+              <label className="authInputField">
+                <span>Password</span>
+                <div>
+                  <LockKeyhole size={18} />
+                  <input
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    placeholder="Password"
+                    type="password"
+                    required
+                  />
+                </div>
+              </label>
+
+              <label className="authInputField">
+                <span>Confirm</span>
+                <div>
+                  <LockKeyhole size={18} />
+                  <input
+                    value={passwordConfirm}
+                    onChange={(event) => setPasswordConfirm(event.target.value)}
+                    placeholder="Confirm"
+                    type="password"
+                    required
+                  />
+                </div>
+              </label>
+            </div>
+
+            <button type="submit" className="authSubmitButton" disabled={loading}>
+              {loading ? "Creating account..." : "Create account"}
+              <ArrowRight size={17} />
+            </button>
+          </form>
+
+          {error ? <p className="errorText authError">{error}</p> : null}
+
+          <p className="authSwitchText">
+            Already have an account? <Link href="/login">Sign in</Link>
+          </p>
+        </section>
+      </section>
+    </main>
+  );
+}

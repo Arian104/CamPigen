@@ -1,0 +1,153 @@
+"use client";
+
+import Link from "next/link";
+import { FormEvent, useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  ArrowRight,
+  CheckCircle2,
+  LockKeyhole,
+  Mail,
+  ShieldCheck,
+  Sparkles,
+} from "lucide-react";
+
+import { usePlatform } from "@/components/platform-context";
+
+export default function LoginPage() {
+  const router = useRouter();
+  const { login } = usePlatform();
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    setLoading(true);
+    setError("");
+
+    const ok = await login(email, password);
+
+    if (!ok) {
+      setError("Invalid email or password.");
+      setLoading(false);
+      return;
+    }
+
+    router.push("/");
+    setLoading(false);
+  }
+
+  return (
+    <main className="authPage">
+      <section className="authShell">
+        <aside className="authBrandPanel">
+          <div className="authBrandTop">
+            <div className="brandMark authBrandMark">EP</div>
+            <div>
+              <strong>Email Platform</strong>
+              <span>Enterprise SaaS Dashboard</span>
+            </div>
+          </div>
+
+          <div className="authBrandContent">
+            <div className="authBadge">
+              <Sparkles size={15} />
+              Modern email operations
+            </div>
+
+            <h1>Manage campaigns, SMTP, contacts, links, and webhooks from one place.</h1>
+
+            <p>
+              Sign in to control your organization workspace, automate email delivery,
+              monitor campaigns, and personalize your SaaS dashboard.
+            </p>
+          </div>
+
+          <div className="authFeatureList">
+            <div>
+              <CheckCircle2 size={18} />
+              <span>Campaign scheduling with Celery</span>
+            </div>
+            <div>
+              <CheckCircle2 size={18} />
+              <span>SMTP pool and delivery tracking</span>
+            </div>
+            <div>
+              <CheckCircle2 size={18} />
+              <span>Webhooks, analytics, and tracked links</span>
+            </div>
+          </div>
+        </aside>
+
+        <section className="authFormPanel">
+          <div className="authFormHeader">
+            <div className="authIcon">
+              <ShieldCheck size={24} />
+            </div>
+
+            <div>
+              <p className="eyebrow">Welcome Back</p>
+              <h2>Sign in to your account</h2>
+              <p className="muted">Use your email and password to access the dashboard.</p>
+            </div>
+          </div>
+
+          <form className="authForm" onSubmit={onSubmit}>
+            <label className="authInputField">
+              <span>Email Address</span>
+              <div>
+                <Mail size={18} />
+                <input
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="you@example.com"
+                  type="email"
+                  required
+                />
+              </div>
+            </label>
+
+            <label className="authInputField">
+              <span>Password</span>
+              <div>
+                <LockKeyhole size={18} />
+                <input
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  placeholder="Enter your password"
+                  type="password"
+                  required
+                />
+              </div>
+            </label>
+
+            <div className="authFormMeta">
+              <label className="authRemember">
+                <input type="checkbox" />
+                <span>Remember me</span>
+              </label>
+
+              <Link href="/forgot-password">Forgot password?</Link>
+            </div>
+
+            <button type="submit" className="authSubmitButton" disabled={loading}>
+              {loading ? "Signing in..." : "Sign in"}
+              <ArrowRight size={17} />
+            </button>
+          </form>
+
+          {error ? <p className="errorText authError">{error}</p> : null}
+
+          <p className="authSwitchText">
+            Do not have an account? <Link href="/register">Create account</Link>
+          </p>
+        </section>
+      </section>
+    </main>
+  );
+}

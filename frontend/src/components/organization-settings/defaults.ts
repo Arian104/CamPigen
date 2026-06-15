@@ -1,0 +1,118 @@
+import { Organization } from "./types";
+
+export function emptyOrg(): Organization {
+  return {
+    id: "",
+    name: "",
+    subdomain: "",
+    plan: "free",
+    industry_type: "custom",
+    website: "",
+    country: "",
+    timezone: "Asia/Dhaka",
+    is_active: true,
+
+    brand_name: "",
+    logo_url: "",
+    favicon_url: "",
+    primary_color: "#2563eb",
+    secondary_color: "#111827",
+    accent_color: "#10b981",
+    font_family: "Inter",
+    button_style: "rounded",
+
+    default_from_name: "",
+    default_from_email: "",
+    default_reply_to_email: "",
+    default_campaign_language: "en",
+    default_footer_text: "",
+    default_disclaimer: "",
+    default_template_width: 600,
+    default_header_logo_enabled: true,
+    default_footer_enabled: true,
+
+    company_legal_name: "",
+    business_phone: "",
+    support_email: "",
+    business_address: "",
+    city: "",
+    state: "",
+    postal_code: "",
+    unsubscribe_policy: "one_click",
+    physical_address_required: true,
+    gdpr_enabled: false,
+    double_opt_in_enabled: false,
+    marketing_consent_required: true,
+
+    contact_schema_preset: "custom",
+    preset_applied: false,
+
+    facebook_url: "",
+    instagram_url: "",
+    linkedin_url: "",
+    twitter_url: "",
+    youtube_url: "",
+    tiktok_url: "",
+    whatsapp_number: "",
+
+    max_users: 3,
+    max_contacts: 1000,
+    max_templates: 20,
+    max_segments: 10,
+    automation_enabled: false,
+    advanced_segmentation_enabled: false,
+    webhooks_enabled: false,
+    ai_features_enabled: false,
+    custom_branding_enabled: false,
+  };
+}
+
+export function buildOrganizationPayload(organization: Organization) {
+  return {
+    name: organization.name,
+    industry_type: organization.industry_type,
+    website: organization.website,
+    country: organization.country,
+    timezone: organization.timezone,
+
+    brand_name: organization.brand_name,
+    primary_color: organization.primary_color,
+    secondary_color: organization.secondary_color,
+    accent_color: organization.accent_color,
+    font_family: organization.font_family,
+    button_style: organization.button_style,
+
+    default_from_name: organization.default_from_name,
+    default_from_email: organization.default_from_email,
+    default_reply_to_email: organization.default_reply_to_email,
+    default_campaign_language: organization.default_campaign_language,
+    default_footer_text: organization.default_footer_text,
+    default_disclaimer: organization.default_disclaimer,
+    default_template_width: Number(organization.default_template_width),
+    default_header_logo_enabled: organization.default_header_logo_enabled,
+    default_footer_enabled: organization.default_footer_enabled,
+
+    company_legal_name: organization.company_legal_name,
+    business_phone: organization.business_phone,
+    support_email: organization.support_email,
+    business_address: organization.business_address,
+    city: organization.city,
+    state: organization.state,
+    postal_code: organization.postal_code,
+    unsubscribe_policy: organization.unsubscribe_policy,
+    physical_address_required: organization.physical_address_required,
+    gdpr_enabled: organization.gdpr_enabled,
+    double_opt_in_enabled: organization.double_opt_in_enabled,
+    marketing_consent_required: organization.marketing_consent_required,
+
+    contact_schema_preset: organization.contact_schema_preset,
+
+    facebook_url: organization.facebook_url,
+    instagram_url: organization.instagram_url,
+    linkedin_url: organization.linkedin_url,
+    twitter_url: organization.twitter_url,
+    youtube_url: organization.youtube_url,
+    tiktok_url: organization.tiktok_url,
+    whatsapp_number: organization.whatsapp_number,
+  };
+}

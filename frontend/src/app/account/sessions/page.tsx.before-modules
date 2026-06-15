@@ -1,0 +1,140 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { Laptop, ShieldX } from "lucide-react";
+
+import { usePlatform } from "@/components/platform-context";
+import { AccountSession } from "@/types/account";
+
+function formatDate(value?: string | null) {
+  if (!value) return "-";
+  return new Date(value).toLocaleString();
+}
+
+export default function AccountSessionsPage() {
+  const { request } = usePlatform();
+
+  const [sessions, setSessions] = useState<AccountSession[]>([]);
+  const [message, setMessage] = useState("Review active and previous account sessions.");
+  const [loading, setLoading] = useState(true);
+
+  async function loadSessions() {
+    setLoading(true);
+
+    const result = await request("/v1/accounts/sessions/");
+
+    if (result.ok && Array.isArray(result.body)) {
+      setSessions(result.body as AccountSession[]);
+      setMessage(`Loaded ${result.body.length} sessions.`);
+    } else {
+      setMessage("Could not load sessions.");
+    }
+
+    setLoading(false);
+  }
+
+  async function revokeSession(sessionId: string) {
+    const confirmed = window.confirm("Revoke this session?");
+    if (!confirmed) return;
+
+    const result = await request(`/v1/accounts/sessions/${sessionId}/revoke/`, {
+      method: "POST",
+    });
+
+    if (result.ok) {
+      setMessage("Session revoked.");
+      await loadSessions();
+    } else {
+      setMessage("Could not revoke session.");
+    }
+  }
+
+  useEffect(() => {
+    void loadSessions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <main className="page">
+      <section className="card flexBetween">
+        <div>
+          <p className="eyebrow">Access History</p>
+          <h1>Account Sessions</h1>
+          <p className="muted">{message}</p>
+        </div>
+      </section>
+
+      <section className="card">
+        <div className="tableWrap">
+          <table className="dataTable">
+            <thead>
+              <tr>
+                <th>Device</th>
+                <th>IP Address</th>
+                <th>Status</th>
+                <th>Last Activity</th>
+                <th>Created</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="centerText muted">
+                    Loading sessions...
+                  </td>
+                </tr>
+              ) : sessions.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="centerText muted">
+                    No session found.
+                  </td>
+                </tr>
+              ) : (
+                sessions.map((session) => (
+                  <tr key={session.id}>
+                    <td>
+                      <strong>
+                        <Laptop size={14} /> {session.device_name || "Unknown device"}
+                      </strong>
+                      <span>
+                        {session.browser || "-"} · {session.os || "-"}
+                      </span>
+                    </td>
+
+                    <td>{session.ip_address || "-"}</td>
+
+                    <td>
+                      <span className={session.is_active ? "statusPill active" : "statusPill suspended"}>
+                        {session.is_active ? "Active" : "Inactive"}
+                      </span>
+                    </td>
+
+                    <td>{formatDate(session.last_activity_at)}</td>
+                    <td>{formatDate(session.created_at)}</td>
+
+                    <td>
+                      {session.is_active ? (
+                        <button
+                          type="button"
+                          className="smallButton dangerSmall"
+                          onClick={() => void revokeSession(session.id)}
+                        >
+                          <ShieldX size={14} />
+                          Revoke
+                        </button>
+                      ) : (
+                        <span className="muted">Revoked</span>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  );
+}

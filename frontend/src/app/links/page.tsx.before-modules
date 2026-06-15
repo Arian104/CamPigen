@@ -1,0 +1,556 @@
+"use client";
+
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { Copy, ExternalLink, Pause, Play, RefreshCw, Trash2 } from "lucide-react";
+
+import { usePlatform } from "@/components/platform-context";
+
+type LinkGroup = {
+  campaign_id?: string | null;
+  campaign_name: string;
+  original_url: string;
+  link_count: number;
+  total_clicks: number;
+  unique_clicks: number;
+  last_clicked_at?: string | null;
+};
+
+type TrackedLink = {
+  id: string;
+  name?: string;
+  original_url: string;
+  tracking_code: string;
+  tracking_url: string;
+  is_active: boolean;
+  expires_at?: string | null;
+  click_count: number;
+  unique_click_count: number;
+  last_clicked_at?: string | null;
+  campaign_name?: string;
+  contact_email?: string;
+  contact_name?: string;
+  email_recipient?: string;
+  email_subject?: string;
+};
+
+type LinkClick = {
+  id: string;
+  link_name?: string;
+  original_url?: string;
+  tracking_code?: string;
+  campaign_name?: string;
+  contact_email?: string;
+  contact_name?: string;
+  email_recipient?: string;
+  ip_address?: string;
+  device_type?: string;
+  browser?: string;
+  os?: string;
+  is_unique?: boolean;
+  clicked_at?: string;
+};
+
+type LinkSummary = {
+  total_links: number;
+  active_links: number;
+  inactive_links: number;
+  expired_links: number;
+  total_clicks: number;
+  total_unique_clicks: number;
+};
+
+const EMPTY_FORM = {
+  name: "",
+  original_url: "",
+  expires_at: "",
+  is_active: true,
+};
+
+export default function LinksPage() {
+  const { request } = usePlatform();
+
+  const [groups, setGroups] = useState<LinkGroup[]>([]);
+  const [links, setLinks] = useState<TrackedLink[]>([]);
+  const [clicks, setClicks] = useState<LinkClick[]>([]);
+  const [summary, setSummary] = useState<LinkSummary | null>(null);
+
+  const [form, setForm] = useState({ ...EMPTY_FORM });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [selectedGroup, setSelectedGroup] = useState<LinkGroup | null>(null);
+  const [message, setMessage] = useState("No link activity yet.");
+  const [loading, setLoading] = useState(false);
+
+  const detailTitle = useMemo(() => {
+    if (!selectedGroup) return "Recipient-Level Links";
+    return `${selectedGroup.campaign_name} — ${selectedGroup.original_url}`;
+  }, [selectedGroup]);
+
+  function updateForm(key: keyof typeof EMPTY_FORM, value: string | boolean) {
+    setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function toQuery(group: LinkGroup) {
+    const params = new URLSearchParams();
+    params.set("original_url", group.original_url);
+    if (group.campaign_id) params.set("campaign", group.campaign_id);
+    return params.toString();
+  }
+
+  async function loadOverview() {
+    const [groupsRes, summaryRes, clicksRes] = await Promise.all([
+      request("/v1/links/groups/"),
+      request("/v1/links/summary/"),
+      request("/v1/link-clicks/"),
+    ]);
+
+    if (groupsRes.ok) {
+      setGroups(Array.isArray(groupsRes.body) ? (groupsRes.body as LinkGroup[]) : []);
+    }
+
+    if (summaryRes.ok && typeof summaryRes.body === "object" && summaryRes.body) {
+      setSummary(summaryRes.body as LinkSummary);
+    }
+
+    if (clicksRes.ok) {
+      const data = clicksRes.body as { results?: LinkClick[] } | LinkClick[];
+      setClicks(Array.isArray(data) ? data : data.results ?? []);
+    }
+
+    setMessage("Loaded grouped link analytics.");
+  }
+
+  async function refreshAll() {
+    setLoading(true);
+    await loadOverview();
+    setLoading(false);
+  }
+
+  async function loadGroupDetails(group: LinkGroup) {
+    setSelectedGroup(group);
+    setLoading(true);
+
+    const result = await request(`/v1/links/?${toQuery(group)}`);
+
+    if (result.ok) {
+      const data = result.body as { results?: TrackedLink[] } | TrackedLink[];
+      const rows = Array.isArray(data) ? data : data.results ?? [];
+      setLinks(rows);
+      setMessage(`Loaded ${rows.length} recipient-level links.`);
+    } else {
+      setMessage("Could not load group details.");
+    }
+
+    setLoading(false);
+  }
+
+  async function saveLink(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setLoading(true);
+
+    const payload = {
+      name: form.name,
+      original_url: form.original_url,
+      is_active: form.is_active,
+      expires_at: form.expires_at ? new Date(form.expires_at).toISOString() : null,
+    };
+
+    const endpoint = editingId ? `/v1/links/${editingId}/` : "/v1/links/";
+    const method = editingId ? "PATCH" : "POST";
+
+    const result = await request(endpoint, {
+      method,
+      body: JSON.stringify(payload),
+    });
+
+    if (result.ok) {
+      setMessage(editingId ? "Tracked link updated." : "Tracked link created.");
+      setForm({ ...EMPTY_FORM });
+      setEditingId(null);
+      await loadOverview();
+    } else {
+      setMessage(`Save failed: ${JSON.stringify(result.body)}`);
+    }
+
+    setLoading(false);
+  }
+
+  function startEdit(link: TrackedLink) {
+    setEditingId(link.id);
+    setForm({
+      name: link.name || "",
+      original_url: link.original_url || "",
+      expires_at: link.expires_at ? link.expires_at.slice(0, 16) : "",
+      is_active: Boolean(link.is_active),
+    });
+    setMessage(`Editing ${link.name || link.original_url}`);
+  }
+
+  async function pauseOrResume(link: TrackedLink) {
+    setLoading(true);
+
+    const action = link.is_active ? "pause" : "resume";
+    const result = await request(`/v1/links/${link.id}/${action}/`, { method: "POST" });
+
+    if (result.ok) {
+      setMessage(link.is_active ? "Tracked link paused." : "Tracked link resumed.");
+      if (selectedGroup) await loadGroupDetails(selectedGroup);
+      await loadOverview();
+    } else {
+      setMessage("Could not update link status.");
+    }
+
+    setLoading(false);
+  }
+
+  async function deleteLink(link: TrackedLink) {
+    const confirmed = window.confirm(`Delete link "${link.name || link.original_url}"?`);
+    if (!confirmed) return;
+
+    setLoading(true);
+
+    const result = await request(`/v1/links/${link.id}/`, { method: "DELETE" });
+
+    if (result.ok) {
+      setMessage("Tracked link deleted.");
+      if (selectedGroup) await loadGroupDetails(selectedGroup);
+      await loadOverview();
+    } else {
+      setMessage("Could not delete tracked link.");
+    }
+
+    setLoading(false);
+  }
+
+  async function copyText(value: string) {
+    try {
+      await navigator.clipboard.writeText(value);
+      setMessage("Tracking URL copied.");
+    } catch {
+      setMessage("Could not copy URL.");
+    }
+  }
+
+  useEffect(() => {
+    void refreshAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <main className="page">
+      <section className="card flexBetween">
+        <div>
+          <h1>Tracked Links</h1>
+          <p className="muted">
+            View campaign-level link performance first, then inspect recipient-level tracking links.
+          </p>
+          <p className="muted small">{message}</p>
+        </div>
+
+        <button type="button" className="secondaryButton" onClick={() => void refreshAll()}>
+          <RefreshCw size={16} />
+          Refresh
+        </button>
+      </section>
+
+      <section className="card statGrid">
+        <Stat title="Total Generated Links" value={summary?.total_links ?? 0} />
+        <Stat title="Active" value={summary?.active_links ?? 0} />
+        <Stat title="Inactive" value={summary?.inactive_links ?? 0} />
+        <Stat title="Total Clicks" value={summary?.total_clicks ?? 0} />
+        <Stat title="Unique Clicks" value={summary?.total_unique_clicks ?? 0} />
+      </section>
+
+      <section className="card">
+        <div className="flexBetween">
+          <div>
+            <h2>{editingId ? "Edit Manual Link" : "Create Manual Link"}</h2>
+            <p className="muted">
+              Manual links are useful for general tracking. Email engine links are generated per recipient automatically.
+            </p>
+          </div>
+
+          {editingId ? (
+            <button
+              type="button"
+              className="secondaryButton"
+              onClick={() => {
+                setEditingId(null);
+                setForm({ ...EMPTY_FORM });
+              }}
+            >
+              Cancel Edit
+            </button>
+          ) : null}
+        </div>
+
+        <form onSubmit={saveLink} className="settingsForm">
+          <div className="settingsGridTwo">
+            <Field label="Link Name">
+              <input
+                value={form.name}
+                onChange={(event) => updateForm("name", event.target.value)}
+                placeholder="Pricing Page"
+              />
+            </Field>
+
+            <Field label="Original URL">
+              <input
+                value={form.original_url}
+                onChange={(event) => updateForm("original_url", event.target.value)}
+                placeholder="https://example.com/pricing"
+                required
+              />
+            </Field>
+
+            <Field label="Expires At Optional">
+              <input
+                type="datetime-local"
+                value={form.expires_at}
+                onChange={(event) => updateForm("expires_at", event.target.value)}
+              />
+            </Field>
+
+            <Field label="Status">
+              <button
+                type="button"
+                className={form.is_active ? "toggle active" : "toggle"}
+                onClick={() => updateForm("is_active", !form.is_active)}
+              >
+                <span>{form.is_active ? "Active" : "Inactive"}</span>
+              </button>
+            </Field>
+          </div>
+
+          <button type="submit" disabled={loading}>
+            {editingId ? "Update Link" : "Create Link"}
+          </button>
+        </form>
+      </section>
+
+      <section className="card">
+        <h2>Campaign Link Groups</h2>
+
+        <div className="tableWrap">
+          <table className="dataTable linksTable">
+            <thead>
+              <tr>
+                <th>Campaign</th>
+                <th>Original URL</th>
+                <th>Generated Links</th>
+                <th>Total Clicks</th>
+                <th>Unique Clicks</th>
+                <th>Last Clicked</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {groups.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="muted centerText">
+                    No grouped links found.
+                  </td>
+                </tr>
+              ) : (
+                groups.map((group) => (
+                  <tr key={`${group.campaign_id || "manual"}-${group.original_url}`}>
+                    <td>
+                      <strong>{group.campaign_name}</strong>
+                    </td>
+                    <td className="urlCell">{group.original_url}</td>
+                    <td>{group.link_count}</td>
+                    <td>{group.total_clicks}</td>
+                    <td>{group.unique_clicks}</td>
+                    <td>{formatDate(group.last_clicked_at)}</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="smallButton"
+                        onClick={() => void loadGroupDetails(group)}
+                      >
+                        View Recipients
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="card">
+        <div className="flexBetween">
+          <div>
+            <h2>{detailTitle}</h2>
+            <p className="muted">
+              {selectedGroup
+                ? "These are the unique per-email or per-contact tracking links inside the selected group."
+                : "Select a campaign link group to see recipient-level generated links."}
+            </p>
+          </div>
+
+          {selectedGroup ? (
+            <button
+              type="button"
+              className="secondaryButton"
+              onClick={() => {
+                setSelectedGroup(null);
+                setLinks([]);
+              }}
+            >
+              Close Details
+            </button>
+          ) : null}
+        </div>
+
+        <div className="tableWrap">
+          <table className="dataTable linksTable">
+            <thead>
+              <tr>
+                <th>Recipient</th>
+                <th>Tracking URL</th>
+                <th>Clicks</th>
+                <th>Last Clicked</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {links.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="muted centerText">
+                    No recipient-level links selected.
+                  </td>
+                </tr>
+              ) : (
+                links.map((link) => (
+                  <tr key={link.id}>
+                    <td>
+                      <strong>{link.contact_name || link.contact_email || link.email_recipient || "Manual Link"}</strong>
+                      <span className="muted small">{link.email_subject || link.name || "-"}</span>
+                    </td>
+
+                    <td className="urlCell">{link.tracking_url}</td>
+
+                    <td>
+                      <div className="linkMiniStats">
+                        <span>Total: {link.click_count}</span>
+                        <span>Unique: {link.unique_click_count}</span>
+                      </div>
+                    </td>
+
+                    <td>{formatDate(link.last_clicked_at)}</td>
+
+                    <td>
+                      {link.is_active ? (
+                        <span className="statusPill active">Active</span>
+                      ) : (
+                        <span className="statusPill suspended">Inactive</span>
+                      )}
+                    </td>
+
+                    <td>
+                      <div className="linkActions">
+                        <button type="button" className="smallButton" onClick={() => void copyText(link.tracking_url)}>
+                          <Copy size={14} />
+                        </button>
+
+                        <a className="smallButton" href={link.tracking_url} target="_blank" rel="noreferrer">
+                          <ExternalLink size={14} />
+                        </a>
+
+                        <button type="button" className="smallButton" onClick={() => void pauseOrResume(link)}>
+                          {link.is_active ? <Pause size={14} /> : <Play size={14} />}
+                        </button>
+
+                        <button type="button" className="smallButton" onClick={() => startEdit(link)}>
+                          Edit
+                        </button>
+
+                        <button type="button" className="smallButton dangerSmall" onClick={() => void deleteLink(link)}>
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="card">
+        <h2>Recent Clicks</h2>
+
+        <div className="tableWrap">
+          <table className="dataTable">
+            <thead>
+              <tr>
+                <th>Link</th>
+                <th>Contact</th>
+                <th>IP</th>
+                <th>Device</th>
+                <th>Browser</th>
+                <th>Unique</th>
+                <th>Clicked At</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {clicks.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="muted centerText">
+                    No clicks recorded yet.
+                  </td>
+                </tr>
+              ) : (
+                clicks.map((click) => (
+                  <tr key={click.id}>
+                    <td>{click.link_name || click.original_url || click.tracking_code || "-"}</td>
+                    <td>{click.contact_name || click.contact_email || click.email_recipient || "-"}</td>
+                    <td>{click.ip_address || "-"}</td>
+                    <td>{click.device_type || "-"}</td>
+                    <td>{click.browser || "-"}</td>
+                    <td>{click.is_unique ? "Yes" : "No"}</td>
+                    <td>{formatDate(click.clicked_at)}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="formField">
+      <span>{label}</span>
+      {children}
+    </label>
+  );
+}
+
+function Stat({ title, value }: { title: string | number; value: string | number }) {
+  return (
+    <article className="statItem">
+      <h3>{title}</h3>
+      <p>{value}</p>
+    </article>
+  );
+}
+
+function formatDate(value?: string | null) {
+  if (!value) return "-";
+
+  try {
+    return new Date(value).toLocaleString();
+  } catch {
+    return "-";
+  }
+}

@@ -1,0 +1,100 @@
+/* =========================================================
+   THEME TOKENS
+   Global variables only. Account personalization changes these.
+========================================================= */
+
+:root {
+  color-scheme: light;
+
+  --bg: #f5f7fb;
+  --surface: rgba(255, 255, 255, 0.92);
+  --surface-solid: #ffffff;
+  --surface-muted: #f8fafc;
+
+  --text: #0f172a;
+  --text-soft: #334155;
+  --muted: #64748b;
+
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+
+  --primary: #4f46e5;
+  --primary-hover: color-mix(in srgb, var(--primary) 86%, #000000);
+  --primary-soft: color-mix(in srgb, var(--primary) 12%, transparent);
+  --accent: var(--primary);
+
+  --green: #16a34a;
+  --green-soft: #dcfce7;
+
+  --danger: #dc2626;
+  --danger-hover: #b91c1c;
+  --danger-soft: #fee2e2;
+
+  --warning: #d97706;
+  --warning-soft: #fff7ed;
+
+  --hero-dark-1: #0f172a;
+  --hero-dark-2: #1e293b;
+  --hero-dark-3: #111827;
+
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+
+  --shadow-sm: 0 8px 22px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 18px 44px rgba(15, 23, 42, 0.1);
+  --shadow-lg: 0 28px 80px rgba(15, 23, 42, 0.16);
+
+  --topbar-height: 76px;
+  --sidebar-width: 232px;
+  --sidebar-collapsed-width: 76px;
+
+  --app-bg-glow-1: color-mix(in srgb, var(--primary) 14%, transparent);
+  --app-bg-glow-2: rgba(14, 165, 233, 0.11);
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #020617;
+  --surface: rgba(15, 23, 42, 0.92);
+  --surface-solid: #0f172a;
+  --surface-muted: #111827;
+
+  --text: #f8fafc;
+  --text-soft: #cbd5e1;
+  --muted: #94a3b8;
+
+  --border: rgba(148, 163, 184, 0.22);
+  --border-strong: rgba(203, 213, 225, 0.34);
+
+  --green: #22c55e;
+  --green-soft: rgba(34, 197, 94, 0.14);
+
+  --danger: #f87171;
+  --danger-hover: #ef4444;
+  --danger-soft: rgba(248, 113, 113, 0.14);
+
+  --warning: #f59e0b;
+  --warning-soft: rgba(245, 158, 11, 0.14);
+
+  --hero-dark-1: #020617;
+  --hero-dark-2: #111827;
+  --hero-dark-3: #1e1b4b;
+
+  --shadow-sm: 0 8px 22px rgba(0, 0, 0, 0.22);
+  --shadow-md: 0 18px 44px rgba(0, 0, 0, 0.32);
+  --shadow-lg: 0 28px 80px rgba(0, 0, 0, 0.44);
+
+  --app-bg-glow-1: color-mix(in srgb, var(--primary) 15%, transparent);
+  --app-bg-glow-2: rgba(14, 165, 233, 0.08);
+}
+
+@media (max-width: 760px) {
+  :root {
+    --topbar-height: 64px;
+    --sidebar-width: 0px;
+    --sidebar-collapsed-width: 0px;
+  }
+}

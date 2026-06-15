@@ -1,0 +1,22 @@
+{% extends 'admin/base_site.html' %}
+{% block content %}
+<h1>Campaigns</h1>
+<a href="{% url 'campaigns:create' %}" style="margin-bottom: 20px; display: inline-block;">+ Add Campaign</a>
+<table>
+    <thead>
+        <tr><th>Name</th><th>Type</th><th>Status</th><th>Scheduled</th><th>Sent</th><th>Open Rate</th></tr>
+    </thead>
+    <tbody>
+        {% for campaign in campaigns %}
+        <tr>
+            <td><a href="{% url 'campaigns:detail' campaign.id %}">{{ campaign.name }}</a></td>
+            <td>{{ campaign.get_campaign_type_display }}</td>
+            <td>{{ campaign.get_status_display }}</td>
+            <td>{{ campaign.scheduled_at|default:"-" }}</td>
+            <td>{{ campaign.total_sent }}</td>
+            <td>{{ campaign.open_rate }}%</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

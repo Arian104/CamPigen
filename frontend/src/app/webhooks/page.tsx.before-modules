@@ -1,0 +1,643 @@
+"use client";
+
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import {
+  Pause,
+  Play,
+  RefreshCw,
+  RotateCcw,
+  Send,
+  Shield,
+  Trash2,
+  Wand2,
+} from "lucide-react";
+
+import { usePlatform } from "@/components/platform-context";
+
+type Webhook = {
+  id: string;
+  name?: string;
+  url?: string;
+  events?: string[];
+  secret_preview?: string;
+  is_active?: boolean;
+  retry_count?: number;
+  retry_delay?: number;
+  timeout_seconds?: number;
+  custom_headers?: Record<string, string>;
+  last_triggered_at?: string | null;
+  last_success_at?: string | null;
+  last_failure_at?: string | null;
+  delivery_count?: number;
+  success_count?: number;
+  failure_count?: number;
+};
+
+type WebhookDelivery = {
+  id: string;
+  webhook_name?: string;
+  webhook_url?: string;
+  event_type?: string;
+  response_status?: number | null;
+  response_body?: string;
+  success?: boolean;
+  attempts?: number;
+  max_attempts?: number;
+  next_retry_at?: string | null;
+  error_message?: string;
+  completed_at?: string | null;
+  created_at?: string;
+};
+
+type WebhookSummary = {
+  total_webhooks: number;
+  active_webhooks: number;
+  inactive_webhooks: number;
+  total_deliveries: number;
+  successful_deliveries: number;
+  failed_deliveries: number;
+};
+
+const EVENT_OPTIONS = [
+  "email.sent",
+  "email.failed",
+  "email.delivered",
+  "email.opened",
+  "email.clicked",
+  "link.clicked",
+  "email.bounced",
+  "campaign.completed",
+  "contact.created",
+  "contact.updated",
+  "contact.unsubscribed",
+  "smtp.failed",
+  "smtp.cooldown_started",
+];
+
+const EMPTY_FORM = {
+  name: "",
+  url: "",
+  events: ["email.clicked", "link.clicked"],
+  retry_count: 3,
+  retry_delay: 60,
+  timeout_seconds: 10,
+  is_active: true,
+  custom_headers: "{}",
+};
+
+export default function WebhooksPage() {
+  const { request } = usePlatform();
+
+  const [webhooks, setWebhooks] = useState<Webhook[]>([]);
+  const [deliveries, setDeliveries] = useState<WebhookDelivery[]>([]);
+  const [summary, setSummary] = useState<WebhookSummary | null>(null);
+  const [form, setForm] = useState({ ...EMPTY_FORM });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [selectedWebhookId, setSelectedWebhookId] = useState<string | null>(null);
+  const [message, setMessage] = useState("No webhook activity yet.");
+  const [loading, setLoading] = useState(false);
+
+  const selectedWebhook = useMemo(() => {
+    return webhooks.find((item) => item.id === selectedWebhookId) ?? null;
+  }, [webhooks, selectedWebhookId]);
+
+  function updateForm<K extends keyof typeof EMPTY_FORM>(key: K, value: (typeof EMPTY_FORM)[K]) {
+    setForm((current) => ({
+      ...current,
+      [key]: value,
+    }));
+  }
+
+  function toggleEvent(eventName: string) {
+    const exists = form.events.includes(eventName);
+
+    updateForm(
+      "events",
+      exists
+        ? form.events.filter((item) => item !== eventName)
+        : [...form.events, eventName],
+    );
+  }
+
+  async function loadWebhooks() {
+    const [webhooksRes, deliveriesRes, summaryRes] = await Promise.all([
+      request("/v1/webhooks/"),
+      request("/v1/webhook-deliveries/"),
+      request("/v1/webhooks/summary/"),
+    ]);
+
+    if (webhooksRes.ok) {
+      const data = webhooksRes.body as { results?: Webhook[] } | Webhook[];
+      setWebhooks(Array.isArray(data) ? data : data.results ?? []);
+    } else {
+      setMessage("Failed to load webhooks.");
+    }
+
+    if (deliveriesRes.ok) {
+      const data = deliveriesRes.body as { results?: WebhookDelivery[] } | WebhookDelivery[];
+      setDeliveries(Array.isArray(data) ? data : data.results ?? []);
+    }
+
+    if (summaryRes.ok && typeof summaryRes.body === "object" && summaryRes.body) {
+      setSummary(summaryRes.body as WebhookSummary);
+    }
+
+    setMessage("Webhook data loaded.");
+  }
+
+  async function refreshAll() {
+    setLoading(true);
+    await loadWebhooks();
+    setLoading(false);
+  }
+
+  async function saveWebhook(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setLoading(true);
+
+    let customHeaders: Record<string, string> = {};
+
+    try {
+      customHeaders = JSON.parse(form.custom_headers || "{}");
+    } catch {
+      setMessage("Custom headers must be valid JSON.");
+      setLoading(false);
+      return;
+    }
+
+    const payload = {
+      name: form.name,
+      url: form.url,
+      events: form.events,
+      retry_count: Number(form.retry_count),
+      retry_delay: Number(form.retry_delay),
+      timeout_seconds: Number(form.timeout_seconds),
+      is_active: form.is_active,
+      custom_headers: customHeaders,
+    };
+
+    const endpoint = editingId ? `/v1/webhooks/${editingId}/` : "/v1/webhooks/";
+    const method = editingId ? "PATCH" : "POST";
+
+    const result = await request(endpoint, {
+      method,
+      body: JSON.stringify(payload),
+    });
+
+    if (result.ok) {
+      setMessage(editingId ? "Webhook updated." : "Webhook created.");
+      setEditingId(null);
+      setForm({ ...EMPTY_FORM });
+      await loadWebhooks();
+    } else {
+      setMessage(`Webhook save failed: ${JSON.stringify(result.body)}`);
+    }
+
+    setLoading(false);
+  }
+
+  function startEdit(webhook: Webhook) {
+    setEditingId(webhook.id);
+    setForm({
+      name: webhook.name || "",
+      url: webhook.url || "",
+      events: webhook.events?.length ? webhook.events : [],
+      retry_count: webhook.retry_count ?? 3,
+      retry_delay: webhook.retry_delay ?? 60,
+      timeout_seconds: webhook.timeout_seconds ?? 10,
+      is_active: Boolean(webhook.is_active),
+      custom_headers: JSON.stringify(webhook.custom_headers ?? {}, null, 2),
+    });
+    setMessage(`Editing ${webhook.name || webhook.url}`);
+  }
+
+  async function runWebhookAction(
+    webhook: Webhook,
+    action: "test" | "pause" | "resume" | "regenerate_secret",
+  ) {
+    setLoading(true);
+
+    const result = await request(`/v1/webhooks/${webhook.id}/${action}/`, {
+      method: "POST",
+    });
+
+    if (result.ok) {
+      setMessage(`${action.replace("_", " ")} completed.`);
+      await loadWebhooks();
+    } else {
+      setMessage(`${action.replace("_", " ")} failed: ${JSON.stringify(result.body)}`);
+    }
+
+    setLoading(false);
+  }
+
+  async function deleteWebhook(webhook: Webhook) {
+    const confirmed = window.confirm(`Delete webhook "${webhook.name || webhook.url}"?`);
+    if (!confirmed) return;
+
+    setLoading(true);
+
+    const result = await request(`/v1/webhooks/${webhook.id}/`, {
+      method: "DELETE",
+    });
+
+    if (result.ok) {
+      setMessage("Webhook deleted.");
+      if (selectedWebhookId === webhook.id) setSelectedWebhookId(null);
+      await loadWebhooks();
+    } else {
+      setMessage("Could not delete webhook.");
+    }
+
+    setLoading(false);
+  }
+
+  async function loadDeliveriesForWebhook(webhook: Webhook) {
+    setSelectedWebhookId(webhook.id);
+    setLoading(true);
+
+    const result = await request(`/v1/webhooks/${webhook.id}/deliveries/`);
+
+    if (result.ok) {
+      setDeliveries(Array.isArray(result.body) ? (result.body as WebhookDelivery[]) : []);
+      setMessage(`Loaded deliveries for ${webhook.name || webhook.url}.`);
+    } else {
+      setMessage("Could not load webhook deliveries.");
+    }
+
+    setLoading(false);
+  }
+
+  async function retryDelivery(delivery: WebhookDelivery) {
+    setLoading(true);
+
+    const result = await request(`/v1/webhook-deliveries/${delivery.id}/retry/`, {
+      method: "POST",
+    });
+
+    if (result.ok) {
+      setMessage("Webhook delivery retry queued.");
+      await loadWebhooks();
+    } else {
+      setMessage(`Retry failed: ${JSON.stringify(result.body)}`);
+    }
+
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    void refreshAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <main className="page">
+      <section className="card flexBetween">
+        <div>
+          <h1>Webhooks</h1>
+          <p className="muted">
+            Send real-time platform events to CRMs, Zapier, Make, Slack, ERPs, and custom dashboards.
+          </p>
+          <p className="muted small">{message}</p>
+        </div>
+
+        <button type="button" className="secondaryButton" onClick={() => void refreshAll()}>
+          <RefreshCw size={16} />
+          Refresh
+        </button>
+      </section>
+
+      <section className="card statGrid">
+        <Stat title="Total Webhooks" value={summary?.total_webhooks ?? webhooks.length} />
+        <Stat title="Active" value={summary?.active_webhooks ?? 0} />
+        <Stat title="Deliveries" value={summary?.total_deliveries ?? deliveries.length} />
+        <Stat title="Successful" value={summary?.successful_deliveries ?? 0} />
+        <Stat title="Failed" value={summary?.failed_deliveries ?? 0} />
+      </section>
+
+      <section className="card">
+        <div className="flexBetween">
+          <div>
+            <h2>{editingId ? "Edit Webhook" : "Create Webhook"}</h2>
+            <p className="muted">Paste a receiver URL from Zapier, Make, your CRM, or your own backend.</p>
+          </div>
+
+          {editingId ? (
+            <button
+              type="button"
+              className="secondaryButton"
+              onClick={() => {
+                setEditingId(null);
+                setForm({ ...EMPTY_FORM });
+              }}
+            >
+              Cancel Edit
+            </button>
+          ) : null}
+        </div>
+
+        <form onSubmit={saveWebhook} className="settingsForm">
+          <div className="settingsGridTwo">
+            <Field label="Webhook Name">
+              <input
+                value={form.name}
+                onChange={(event) => updateForm("name", event.target.value)}
+                placeholder="CRM Integration"
+              />
+            </Field>
+
+            <Field label="Webhook URL">
+              <input
+                value={form.url}
+                onChange={(event) => updateForm("url", event.target.value)}
+                placeholder="https://hooks.zapier.com/hooks/catch/..."
+                required
+              />
+            </Field>
+
+            <Field label="Retry Count">
+              <input
+                type="number"
+                value={form.retry_count}
+                onChange={(event) => updateForm("retry_count", Number(event.target.value))}
+              />
+            </Field>
+
+            <Field label="Retry Delay Seconds">
+              <input
+                type="number"
+                value={form.retry_delay}
+                onChange={(event) => updateForm("retry_delay", Number(event.target.value))}
+              />
+            </Field>
+
+            <Field label="Timeout Seconds">
+              <input
+                type="number"
+                value={form.timeout_seconds}
+                onChange={(event) => updateForm("timeout_seconds", Number(event.target.value))}
+              />
+            </Field>
+
+            <Field label="Status">
+              <button
+                type="button"
+                className={form.is_active ? "toggle active" : "toggle"}
+                onClick={() => updateForm("is_active", !form.is_active)}
+              >
+                <span>{form.is_active ? "Active" : "Inactive"}</span>
+              </button>
+            </Field>
+          </div>
+
+          <div className="webhookEvents">
+            <h3>Events</h3>
+            <div className="webhookEventGrid">
+              {EVENT_OPTIONS.map((eventName) => (
+                <button
+                  key={eventName}
+                  type="button"
+                  className={form.events.includes(eventName) ? "eventChip active" : "eventChip"}
+                  onClick={() => toggleEvent(eventName)}
+                >
+                  {eventName}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <Field label="Custom Headers JSON">
+            <textarea
+              value={form.custom_headers}
+              onChange={(event) => updateForm("custom_headers", event.target.value)}
+              placeholder='{"Authorization": "Bearer token"}'
+            />
+          </Field>
+
+          <button type="submit" disabled={loading}>
+            {editingId ? "Update Webhook" : "Create Webhook"}
+          </button>
+        </form>
+      </section>
+
+      <section className="card">
+        <h2>Webhook Endpoints</h2>
+
+        <div className="tableWrap">
+          <table className="dataTable webhookTable">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>URL</th>
+                <th>Events</th>
+                <th>Secret</th>
+                <th>Deliveries</th>
+                <th>Last Success</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {webhooks.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="muted centerText">
+                    No webhooks configured.
+                  </td>
+                </tr>
+              ) : (
+                webhooks.map((webhook) => (
+                  <tr key={webhook.id}>
+                    <td>
+                      <strong>{webhook.name || "Webhook Endpoint"}</strong>
+                      <span className="muted small">Retry: {webhook.retry_count ?? 3}</span>
+                    </td>
+
+                    <td className="urlCell">{webhook.url || "-"}</td>
+
+                    <td>
+                      <div className="chipGroup compact">
+                        {(webhook.events ?? []).slice(0, 4).map((eventName) => (
+                          <span key={eventName} className="chip">
+                            {eventName}
+                          </span>
+                        ))}
+                        {(webhook.events ?? []).length > 4 ? (
+                          <span className="chip">+{(webhook.events ?? []).length - 4}</span>
+                        ) : null}
+                      </div>
+                    </td>
+
+                    <td>{webhook.secret_preview || "-"}</td>
+
+                    <td>
+                      <div className="miniStack">
+                        <span>Total: {webhook.delivery_count ?? 0}</span>
+                        <span>OK: {webhook.success_count ?? 0}</span>
+                        <span>Fail: {webhook.failure_count ?? 0}</span>
+                      </div>
+                    </td>
+
+                    <td>{formatDate(webhook.last_success_at)}</td>
+
+                    <td>
+                      {webhook.is_active ? (
+                        <span className="statusPill active">Active</span>
+                      ) : (
+                        <span className="statusPill suspended">Paused</span>
+                      )}
+                    </td>
+
+                    <td>
+                      <div className="webhookActions">
+                        <button type="button" className="smallButton" onClick={() => void runWebhookAction(webhook, "test")}>
+                          <Send size={14} />
+                        </button>
+
+                        {webhook.is_active ? (
+                          <button type="button" className="smallButton" onClick={() => void runWebhookAction(webhook, "pause")}>
+                            <Pause size={14} />
+                          </button>
+                        ) : (
+                          <button type="button" className="smallButton" onClick={() => void runWebhookAction(webhook, "resume")}>
+                            <Play size={14} />
+                          </button>
+                        )}
+
+                        <button type="button" className="smallButton" onClick={() => void runWebhookAction(webhook, "regenerate_secret")}>
+                          <Shield size={14} />
+                        </button>
+
+                        <button type="button" className="smallButton" onClick={() => void loadDeliveriesForWebhook(webhook)}>
+                          Logs
+                        </button>
+
+                        <button type="button" className="smallButton" onClick={() => startEdit(webhook)}>
+                          Edit
+                        </button>
+
+                        <button type="button" className="smallButton dangerSmall" onClick={() => void deleteWebhook(webhook)}>
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="card">
+        <div className="flexBetween">
+          <div>
+            <h2>Recent Deliveries</h2>
+            <p className="muted">
+              {selectedWebhook
+                ? `Showing logs for ${selectedWebhook.name || selectedWebhook.url}`
+                : "Showing latest delivery attempts."}
+            </p>
+          </div>
+
+          {selectedWebhook ? (
+            <button
+              type="button"
+              className="secondaryButton"
+              onClick={() => {
+                setSelectedWebhookId(null);
+                void refreshAll();
+              }}
+            >
+              Show All
+            </button>
+          ) : null}
+        </div>
+
+        <div className="tableWrap">
+          <table className="dataTable">
+            <thead>
+              <tr>
+                <th>Webhook</th>
+                <th>Event</th>
+                <th>Status</th>
+                <th>HTTP</th>
+                <th>Attempts</th>
+                <th>Error</th>
+                <th>Created</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {deliveries.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="muted centerText">
+                    No deliveries recorded.
+                  </td>
+                </tr>
+              ) : (
+                deliveries.map((delivery) => (
+                  <tr key={delivery.id}>
+                    <td>{delivery.webhook_name || "-"}</td>
+                    <td>{delivery.event_type || "-"}</td>
+                    <td>
+                      {delivery.success ? (
+                        <span className="statusPill active">Success</span>
+                      ) : (
+                        <span className="statusPill suspended">Failed</span>
+                      )}
+                    </td>
+                    <td>{delivery.response_status ?? "-"}</td>
+                    <td>
+                      {delivery.attempts ?? 0}/{delivery.max_attempts ?? 0}
+                    </td>
+                    <td className="urlCell">{delivery.error_message || "-"}</td>
+                    <td>{formatDate(delivery.created_at)}</td>
+                    <td>
+                      {!delivery.success ? (
+                        <button type="button" className="smallButton" onClick={() => void retryDelivery(delivery)}>
+                          <RotateCcw size={14} />
+                        </button>
+                      ) : (
+                        "-"
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="formField">
+      <span>{label}</span>
+      {children}
+    </label>
+  );
+}
+
+function Stat({ title, value }: { title: string; value: string | number }) {
+  return (
+    <article className="statItem">
+      <h3>{title}</h3>
+      <p>{value}</p>
+    </article>
+  );
+}
+
+function formatDate(value?: string | null) {
+  if (!value) return "-";
+
+  try {
+    return new Date(value).toLocaleString();
+  } catch {
+    return "-";
+  }
+}

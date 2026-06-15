@@ -1,0 +1,407 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Activity,
+  BarChart3,
+  Clock,
+  Link as LinkIcon,
+  MailCheck,
+  RefreshCw,
+  Send,
+  Server,
+  Users,
+  Webhook,
+} from "lucide-react";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+
+import { usePlatform } from "@/components/platform-context";
+
+type AnalyticsOverview = {
+  organization?: {
+    name?: string;
+    brand_name?: string;
+  };
+  totals?: {
+    campaigns?: number;
+    contacts?: number;
+    email_jobs?: number;
+    sent?: number;
+    failed?: number;
+    queued?: number;
+    generated_links?: number;
+    clicks?: number;
+    unique_clicks?: number;
+    clicked_contacts?: number;
+    webhook_deliveries?: number;
+    webhook_failures?: number;
+  };
+  rates?: {
+    click_rate?: number;
+    unique_click_rate?: number;
+    failure_rate?: number;
+    webhook_failure_rate?: number;
+  };
+  last_activity?: {
+    last_email_sent_at?: string | null;
+    last_clicked_at?: string | null;
+    last_updated_at?: string | null;
+  };
+};
+
+const CHART_COLORS = ["#2563eb", "#10b981", "#f97316", "#ef4444", "#8b5cf6"];
+
+function valueOf(value: unknown): number {
+  return typeof value === "number" ? value : 0;
+}
+
+function displayValue(value: unknown): number | string {
+  return typeof value === "number" ? value : "-";
+}
+
+function percent(value: unknown): string {
+  return typeof value === "number" ? `${value}%` : "-";
+}
+
+function formatDate(value?: string | null) {
+  if (!value) return "-";
+
+  try {
+    return new Date(value).toLocaleString();
+  } catch {
+    return "-";
+  }
+}
+
+export default function HomePage() {
+  const { request } = usePlatform();
+
+  const [health, setHealth] = useState("Checking...");
+  const [overview, setOverview] = useState<AnalyticsOverview | null>(null);
+  const [message, setMessage] = useState("Loading platform overview...");
+  const [loading, setLoading] = useState(false);
+
+  async function loadOverview() {
+    setLoading(true);
+
+    const healthRes = await request("/health/", {}, false);
+    setHealth(healthRes.ok ? "Healthy" : `Failed (${healthRes.status})`);
+
+    const analyticsRes = await request("/v1/analytics/overview/");
+
+    if (analyticsRes.ok && typeof analyticsRes.body === "object" && analyticsRes.body) {
+      setOverview(analyticsRes.body as AnalyticsOverview);
+      setMessage("Analytics overview loaded.");
+    } else {
+      setMessage("Analytics overview unavailable. Try refreshing analytics.");
+    }
+
+    setLoading(false);
+  }
+
+  async function refreshAnalytics() {
+    setLoading(true);
+    setMessage("Refreshing analytics...");
+
+    const refreshRes = await request("/v1/analytics/refresh/", {
+      method: "POST",
+    });
+
+    if (!refreshRes.ok) {
+      setMessage("Analytics refresh failed.");
+      setLoading(false);
+      return;
+    }
+
+    await loadOverview();
+  }
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void loadOverview();
+    }, 0);
+
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const totals = overview?.totals ?? {};
+  const rates = overview?.rates ?? {};
+  const last = overview?.last_activity ?? {};
+
+  const deliveryChart = useMemo(
+    () => [
+      { name: "Sent", value: valueOf(totals.sent) },
+      { name: "Queued", value: valueOf(totals.queued) },
+      { name: "Failed", value: valueOf(totals.failed) },
+    ],
+    [totals.sent, totals.queued, totals.failed],
+  );
+
+  const engagementChart = useMemo(
+    () => [
+      { name: "Total Clicks", value: valueOf(totals.clicks) },
+      { name: "Unique Clicks", value: valueOf(totals.unique_clicks) },
+      { name: "Clicked Contacts", value: valueOf(totals.clicked_contacts) },
+      { name: "Generated Links", value: valueOf(totals.generated_links) },
+    ],
+    [totals.clicks, totals.unique_clicks, totals.clicked_contacts, totals.generated_links],
+  );
+
+  const webhookChart = useMemo(() => {
+    const total = valueOf(totals.webhook_deliveries);
+    const failed = valueOf(totals.webhook_failures);
+    return [
+      { name: "Success", value: Math.max(total - failed, 0) },
+      { name: "Failed", value: failed },
+    ];
+  }, [totals.webhook_deliveries, totals.webhook_failures]);
+
+  const rateChart = useMemo(
+    () => [
+      { name: "Click", value: valueOf(rates.click_rate) },
+      { name: "Unique Click", value: valueOf(rates.unique_click_rate) },
+      { name: "Email Failure", value: valueOf(rates.failure_rate) },
+      { name: "Webhook Failure", value: valueOf(rates.webhook_failure_rate) },
+    ],
+    [rates.click_rate, rates.unique_click_rate, rates.failure_rate, rates.webhook_failure_rate],
+  );
+
+  return (
+    <main className="page dashboardPage">
+      <section className="dashboardHero">
+        <div>
+          <p className="eyebrow">Executive Dashboard</p>
+          <h1>{overview?.organization?.brand_name || "Enterprise Email Platform"}</h1>
+          <p>
+            Monitor campaigns, SMTP delivery, tracked links, contact engagement, and webhook
+            integrations from one operations center.
+          </p>
+          <div className="dashboardHeroMeta">
+            <span className={health === "Healthy" ? "healthDot healthy" : "healthDot danger"} />
+            <span>System {health}</span>
+            <span>•</span>
+            <span>{message}</span>
+          </div>
+        </div>
+
+        <div className="dashboardHeroActions">
+          <button type="button" className="secondaryButton" onClick={() => void loadOverview()}>
+            <RefreshCw size={16} />
+            Reload
+          </button>
+          <button type="button" className="buttonLink" onClick={() => void refreshAnalytics()}>
+            <Activity size={16} />
+            {loading ? "Refreshing..." : "Refresh Analytics"}
+          </button>
+        </div>
+      </section>
+
+      <section className="dashboardKpiGrid">
+        <KpiCard icon={BarChart3} label="Campaigns" value={displayValue(totals.campaigns)} detail="Total campaigns" />
+        <KpiCard icon={Users} label="Contacts" value={displayValue(totals.contacts)} detail="Active tenant contacts" />
+        <KpiCard icon={MailCheck} label="Emails Sent" value={displayValue(totals.sent)} detail={`${displayValue(totals.failed)} failed`} />
+        <KpiCard icon={LinkIcon} label="Total Clicks" value={displayValue(totals.clicks)} detail={`${displayValue(totals.unique_clicks)} unique`} />
+        <KpiCard icon={Webhook} label="Webhook Deliveries" value={displayValue(totals.webhook_deliveries)} detail={`${displayValue(totals.webhook_failures)} failed`} />
+      </section>
+
+      <section className="dashboardChartGrid">
+        <ChartCard title="Email Delivery Overview" subtitle="Sent, queued, and failed jobs">
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={deliveryChart}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis allowDecimals={false} />
+              <Tooltip />
+              <Bar dataKey="value" radius={[10, 10, 0, 0]}>
+                {deliveryChart.map((entry, index) => (
+                  <Cell key={entry.name} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+
+        <ChartCard title="Engagement Overview" subtitle="Clicks and link activity">
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={engagementChart}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+              <YAxis allowDecimals={false} />
+              <Tooltip />
+              <Bar dataKey="value" radius={[10, 10, 0, 0]}>
+                {engagementChart.map((entry, index) => (
+                  <Cell key={entry.name} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+
+        <ChartCard title="Webhook Health" subtitle="External delivery success vs failure">
+          <ResponsiveContainer width="100%" height={260}>
+            <PieChart>
+              <Pie data={webhookChart} dataKey="value" nameKey="name" outerRadius={88} label>
+                {webhookChart.map((entry, index) => (
+                  <Cell key={entry.name} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip />
+            </PieChart>
+          </ResponsiveContainer>
+        </ChartCard>
+
+        <ChartCard title="Performance Rates" subtitle="Percent-based health indicators">
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={rateChart}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+              <YAxis />
+              <Tooltip />
+              <Bar dataKey="value" radius={[10, 10, 0, 0]}>
+                {rateChart.map((entry, index) => (
+                  <Cell key={entry.name} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+      </section>
+
+      <section className="dashboardTwoCol">
+        <div className="card dashboardActivityCard">
+          <h2>Recent Activity</h2>
+          <ActivityRow icon={Send} label="Last Email Sent" value={formatDate(last.last_email_sent_at)} />
+          <ActivityRow icon={LinkIcon} label="Last Link Click" value={formatDate(last.last_clicked_at)} />
+          <ActivityRow icon={Clock} label="Analytics Refreshed" value={formatDate(last.last_updated_at)} />
+        </div>
+
+        <div className="card dashboardRatesCard">
+          <h2>Operational Rates</h2>
+          <RateRow label="Click Rate" value={percent(rates.click_rate)} />
+          <RateRow label="Unique Click Rate" value={percent(rates.unique_click_rate)} />
+          <RateRow label="Email Failure Rate" value={percent(rates.failure_rate)} />
+          <RateRow label="Webhook Failure Rate" value={percent(rates.webhook_failure_rate)} />
+        </div>
+      </section>
+
+      <section className="card">
+        <h2>Operations Center</h2>
+        <div className="quickGrid">
+          <Link href="/campaigns" className="tileLink">
+            <strong>Campaign Studio</strong>
+            <span>Create and manage campaign sends.</span>
+          </Link>
+          <Link href="/smtp" className="tileLink">
+            <strong>SMTP Infrastructure</strong>
+            <span>Control providers, credentials, limits, and routing.</span>
+          </Link>
+          <Link href="/links" className="tileLink">
+            <strong>Tracked Links</strong>
+            <span>View campaign links and recipient-level click behavior.</span>
+          </Link>
+          <Link href="/webhooks" className="tileLink">
+            <strong>Webhook Center</strong>
+            <span>Send event data to CRMs, Zapier, Make, and dashboards.</span>
+          </Link>
+          <Link href="/email-history" className="tileLink">
+            <strong>Email History</strong>
+            <span>Track queued, sent, and failed deliveries.</span>
+          </Link>
+          <Link href="/instant-send" className="tileLink">
+            <strong>Instant Send</strong>
+            <span>Send immediate emails without campaign setup.</span>
+          </Link>
+        </div>
+      </section>
+    </main>
+  );
+}
+
+function KpiCard({
+  icon: Icon,
+  label,
+  value,
+  detail,
+}: {
+  icon: React.ElementType;
+  label: string;
+  value: string | number;
+  detail: string;
+}) {
+  return (
+    <article className="dashboardKpiCard">
+      <div className="dashboardKpiIcon">
+        <Icon size={20} />
+      </div>
+      <div>
+        <span>{label}</span>
+        <strong>{value}</strong>
+        <small>{detail}</small>
+      </div>
+    </article>
+  );
+}
+
+function ChartCard({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="card dashboardChartCard">
+      <div>
+        <h2>{title}</h2>
+        <p className="muted">{subtitle}</p>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function ActivityRow({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: React.ElementType;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="dashboardListRow">
+      <div className="dashboardListIcon">
+        <Icon size={17} />
+      </div>
+      <div>
+        <strong>{label}</strong>
+        <span>{value}</span>
+      </div>
+    </div>
+  );
+}
+
+function RateRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="dashboardRateRow">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}

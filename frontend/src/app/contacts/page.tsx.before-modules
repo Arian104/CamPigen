@@ -1,0 +1,296 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+
+import { useOrganization } from "@/components/organization-context";
+import { usePlatform } from "@/components/platform-context";
+
+import { BulkActionsBar } from "@/components/contacts/BulkActionsBar";
+import { ContactDirectory } from "@/components/contacts/ContactDirectory";
+import { ContactDrawer } from "@/components/contacts/ContactDrawer";
+import { ContactForm } from "@/components/contacts/ContactForm";
+import { ContactToolbar } from "@/components/contacts/ContactToolbar";
+import { CsvContactImporter } from "@/components/contacts/CsvContactImporter";
+import { FieldManager } from "@/components/contacts/FieldManager";
+import { ListManager } from "@/components/contacts/ListManager";
+import { TagManager } from "@/components/contacts/TagManager";
+
+import {
+  Contact,
+  ContactFieldDefinition,
+  ContactList,
+  ContactPayload,
+  Tag,
+  rowsFromApi,
+} from "@/components/contacts/types";
+
+type Tab = "directory" | "add" | "import" | "fields" | "tags" | "lists";
+
+export default function ContactsPage() {
+  const { request } = usePlatform();
+  const { activeOrganization } = useOrganization();
+
+  const [activeTab, setActiveTab] = useState<Tab>("directory");
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [fields, setFields] = useState<ContactFieldDefinition[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
+  const [lists, setLists] = useState<ContactList[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+
+  const [search, setSearch] = useState("");
+  const [message, setMessage] = useState("No contact activity yet.");
+  const [loading, setLoading] = useState(false);
+
+  const filteredContacts = useMemo(() => {
+    const q = search.toLowerCase().trim();
+
+    if (!q) return contacts;
+
+    return contacts.filter((contact) => {
+      const customText = JSON.stringify(contact.custom_fields ?? {}).toLowerCase();
+
+      return [
+        contact.email,
+        contact.first_name,
+        contact.last_name,
+        contact.phone,
+        contact.company,
+        contact.city,
+        contact.country,
+        contact.source,
+        customText,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(q);
+    });
+  }, [contacts, search]);
+
+  async function loadAll() {
+    setLoading(true);
+
+    const [contactsRes, fieldsRes, tagsRes, listsRes] = await Promise.all([
+      request("/v1/contacts/"),
+      request("/v1/contact-fields/"),
+      request("/v1/tags/"),
+      request("/v1/contact-lists/"),
+    ]);
+
+    if (contactsRes.ok) setContacts(rowsFromApi<Contact>(contactsRes.body));
+    if (fieldsRes.ok) setFields(rowsFromApi<ContactFieldDefinition>(fieldsRes.body));
+    if (tagsRes.ok) setTags(rowsFromApi<Tag>(tagsRes.body));
+    if (listsRes.ok) setLists(rowsFromApi<ContactList>(listsRes.body));
+
+    setMessage("CDP data loaded.");
+    setLoading(false);
+  }
+
+  async function createContact(payload: ContactPayload) {
+    setLoading(true);
+
+    const result = await request("/v1/contacts/", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+
+    setMessage(result.ok ? "Contact created." : `Create failed: ${JSON.stringify(result.body)}`);
+    await loadAll();
+    setActiveTab("directory");
+    setLoading(false);
+  }
+
+  async function updateContact(id: string, payload: ContactPayload) {
+    setLoading(true);
+
+    const result = await request(`/v1/contacts/${id}/`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
+
+    setMessage(result.ok ? "Contact updated." : `Update failed: ${JSON.stringify(result.body)}`);
+    await loadAll();
+    setLoading(false);
+  }
+
+  async function createField(payload: Partial<ContactFieldDefinition>) {
+    setLoading(true);
+
+    const result = await request("/v1/contact-fields/", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+
+    setMessage(result.ok ? "Field created." : `Field failed: ${JSON.stringify(result.body)}`);
+    await loadAll();
+    setLoading(false);
+  }
+
+  async function createTag(payload: Partial<Tag>) {
+    setLoading(true);
+
+    const result = await request("/v1/tags/", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+
+    setMessage(result.ok ? "Tag created." : `Tag failed: ${JSON.stringify(result.body)}`);
+    await loadAll();
+    setLoading(false);
+  }
+
+  async function createList(payload: Partial<ContactList>) {
+    setLoading(true);
+
+    const result = await request("/v1/contact-lists/", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+
+    setMessage(result.ok ? "List/segment created." : `List failed: ${JSON.stringify(result.body)}`);
+    await loadAll();
+    setLoading(false);
+  }
+
+  async function importContacts(payloads: ContactPayload[], tagIds: string[], listId?: string) {
+    setLoading(true);
+
+    const result = await request("/v1/contacts/bulk_import/", {
+      method: "POST",
+      body: JSON.stringify({
+        contacts: payloads,
+        tag_ids: tagIds,
+        list_id: listId || null,
+        overwrite: false,
+        source: "csv",
+      }),
+    });
+
+    setMessage(result.ok ? `Import completed: ${JSON.stringify(result.body)}` : `Import failed: ${JSON.stringify(result.body)}`);
+    await loadAll();
+    setActiveTab("directory");
+    setLoading(false);
+  }
+
+  async function deleteContact(id: string) {
+    const ok = window.confirm("Delete this contact?");
+    if (!ok) return;
+
+    setLoading(true);
+
+    const result = await request(`/v1/contacts/${id}/`, {
+      method: "DELETE",
+    });
+
+    setMessage(result.ok ? "Contact deleted." : `Delete failed: ${JSON.stringify(result.body)}`);
+    await loadAll();
+    setLoading(false);
+  }
+
+  async function bulkApply(tagIds: string[], listIds: string[]) {
+    setLoading(true);
+
+    const result = await request("/v1/contacts/bulk_apply/", {
+      method: "POST",
+      body: JSON.stringify({
+        contact_ids: selectedIds,
+        tag_ids: tagIds,
+        list_ids: listIds,
+      }),
+    });
+
+    setMessage(result.ok ? `Bulk action done: ${JSON.stringify(result.body)}` : `Bulk failed: ${JSON.stringify(result.body)}`);
+    setSelectedIds([]);
+    await loadAll();
+    setLoading(false);
+  }
+
+  function toggleSelect(id: string) {
+    setSelectedIds((current) =>
+      current.includes(id)
+        ? current.filter((item) => item !== id)
+        : [...current, id],
+    );
+  }
+
+  useEffect(() => {
+    if (!activeOrganization) return;
+    void loadAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeOrganization?.id]);
+
+  return (
+    <main className="page">
+      <ContactToolbar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        search={search}
+        setSearch={setSearch}
+        message={message}
+      />
+
+      <BulkActionsBar
+        selectedIds={selectedIds}
+        tags={tags}
+        lists={lists}
+        loading={loading}
+        onBulkApply={bulkApply}
+        onClear={() => setSelectedIds([])}
+      />
+
+      {activeTab === "directory" ? (
+        <ContactDirectory
+          contacts={filteredContacts}
+          fields={fields}
+          tags={tags}
+          selectedIds={selectedIds}
+          onToggleSelect={toggleSelect}
+          onOpenContact={setSelectedContact}
+          onDelete={deleteContact}
+          loading={loading}
+        />
+      ) : null}
+
+      {activeTab === "add" ? (
+        <ContactForm loading={loading} fields={fields} onCreate={createContact} />
+      ) : null}
+
+      {activeTab === "import" ? (
+        <CsvContactImporter
+          loading={loading}
+          fields={fields}
+          tags={tags}
+          lists={lists}
+          onImport={importContacts}
+        />
+      ) : null}
+
+      {activeTab === "fields" ? (
+        <FieldManager fields={fields} loading={loading} onCreate={createField} />
+      ) : null}
+
+      {activeTab === "tags" ? (
+        <TagManager tags={tags} loading={loading} onCreate={createTag} />
+      ) : null}
+
+      {activeTab === "lists" ? (
+        <ListManager
+          lists={lists}
+          tags={tags}
+          fields={fields}
+          loading={loading}
+          onCreate={createList}
+        />
+      ) : null}
+
+      <ContactDrawer
+        contact={selectedContact}
+        fields={fields}
+        loading={loading}
+        onClose={() => setSelectedContact(null)}
+        onUpdate={updateContact}
+      />
+    </main>
+  );
+}

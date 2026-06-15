@@ -1,0 +1,110 @@
+"use client";
+
+import Link from "next/link";
+import { FormEvent, useState } from "react";
+import { ArrowRight, Mail, ShieldCheck, Sparkles } from "lucide-react";
+
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000/api";
+
+export default function ForgotPasswordPage() {
+  const [email, setEmail] = useState("");
+  const [message, setMessage] = useState("Enter your email to receive a password reset link.");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setLoading(true);
+    setError("");
+
+    const response = await fetch(`${API_BASE.replace(/\/$/, "")}/v1/accounts/request-password-reset/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email }),
+    });
+
+    const body = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      setError(JSON.stringify(body) || "Could not send reset link.");
+    } else {
+      setMessage(body?.message || "If an account exists for this email, a reset link has been sent.");
+    }
+
+    setLoading(false);
+  }
+
+  return (
+    <main className="authPage">
+      <section className="authShell compact">
+        <aside className="authBrandPanel">
+          <div className="authBrandTop">
+            <div className="brandMark authBrandMark">EP</div>
+            <div>
+              <strong>Email Platform</strong>
+              <span>Secure account recovery</span>
+            </div>
+          </div>
+
+          <div className="authBrandContent">
+            <div className="authBadge">
+              <Sparkles size={15} />
+              Password recovery
+            </div>
+
+            <h1>Recover access to your workspace securely.</h1>
+
+            <p>
+              We will send a secure password reset link to your account email if it
+              exists in the system.
+            </p>
+          </div>
+        </aside>
+
+        <section className="authFormPanel">
+          <div className="authFormHeader">
+            <div className="authIcon">
+              <ShieldCheck size={24} />
+            </div>
+
+            <div>
+              <p className="eyebrow">Reset Access</p>
+              <h2>Forgot password</h2>
+              <p className="muted">{message}</p>
+            </div>
+          </div>
+
+          <form className="authForm" onSubmit={submit}>
+            <label className="authInputField">
+              <span>Email Address</span>
+              <div>
+                <Mail size={18} />
+                <input
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  required
+                />
+              </div>
+            </label>
+
+            <button type="submit" className="authSubmitButton" disabled={loading}>
+              {loading ? "Sending..." : "Send reset link"}
+              <ArrowRight size={17} />
+            </button>
+          </form>
+
+          {error ? <p className="errorText authError">{error}</p> : null}
+
+          <p className="authSwitchText">
+            Remembered your password? <Link href="/login">Back to login</Link>
+          </p>
+        </section>
+      </section>
+    </main>
+  );
+}

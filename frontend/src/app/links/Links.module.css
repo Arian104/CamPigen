@@ -1,0 +1,149 @@
+/* =========================================================
+   LINKS MODULE
+   Tracked links, click analytics, URL cells.
+========================================================= */
+
+.actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.urlCell {
+  max-width: 320px;
+  word-break: break-all;
+  color: var(--text-soft);
+  font-size: 0.85rem;
+}
+
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.kpiCard {
+  padding: 18px;
+  border-radius: 22px;
+  background: var(--surface-solid);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+
+.kpiCard span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.kpiCard strong {
+  color: var(--text);
+  font-size: 1.6rem;
+}
+
+@media (max-width: 760px) {
+  .kpiGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Remaining links classes */
+.statGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.statItem {
+  padding: 18px;
+  border-radius: 22px;
+  background: var(--surface-solid);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+
+.statItem span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.statItem strong {
+  color: var(--text);
+  font-size: 1.6rem;
+}
+
+.settingsForm {
+  display: grid;
+  gap: 18px;
+}
+
+.linksTable {
+  min-width: 980px;
+}
+
+.linkMiniStats {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+@media (max-width: 760px) {
+  .statGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* =========================================================
+   PAGE BUTTON COLOR NORMALIZER
+========================================================= */
+
+:global(.primaryButton),
+:global(.buttonLink),
+:global(button.primaryButton) {
+  color: #ffffff !important;
+  background: linear-gradient(135deg, var(--primary), #2563eb) !important;
+  border: 0 !important;
+  box-shadow: 0 12px 26px color-mix(in srgb, var(--primary) 22%, transparent) !important;
+}
+
+:global(.primaryButton:hover),
+:global(.buttonLink:hover),
+:global(button.primaryButton:hover) {
+  color: #ffffff !important;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--primary) 88%, #000000),
+    #1d4ed8
+  ) !important;
+}
+
+:global(.secondaryButton),
+:global(.ghostButton),
+:global(.smallButton) {
+  color: var(--text-soft) !important;
+  background: var(--surface-solid) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: none !important;
+}
+
+:global(.secondaryButton:hover),
+:global(.ghostButton:hover),
+:global(.smallButton:hover) {
+  color: var(--primary) !important;
+  background: var(--primary-soft) !important;
+}
+
+:global(.dangerButton) {
+  color: #ffffff !important;
+  background: var(--danger) !important;
+}
+
+:global(.dangerSmall) {
+  color: var(--danger) !important;
+  background: var(--danger-soft) !important;
+}

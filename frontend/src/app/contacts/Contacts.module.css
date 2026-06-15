@@ -1,0 +1,465 @@
+/* =========================================================
+   CONTACTS / CDP MODULE
+   Contacts, tags, bulk bar, drawer.
+========================================================= */
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.search {
+  max-width: 360px;
+}
+
+.gridTwo {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.contactGrid,
+.tagGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.contactCard,
+.tagCard {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 22px;
+  background: var(--surface-solid);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  transition: 0.18s ease;
+}
+
+.contactCard:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--primary) 40%, transparent);
+  box-shadow: var(--shadow-md);
+}
+
+.contactTop {
+  display: grid;
+  grid-template-columns: 22px 46px 1fr;
+  gap: 12px;
+  align-items: center;
+}
+
+.avatar {
+  width: 46px;
+  height: 46px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  color: #ffffff;
+  font-weight: 900;
+  background: linear-gradient(135deg, var(--primary), #2563eb);
+}
+
+.miniInfo {
+  display: grid;
+  gap: 4px;
+}
+
+.miniInfo p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.tagDot {
+  width: 28px;
+  height: 28px;
+  display: inline-block;
+  border-radius: 999px;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 0 1px var(--border);
+}
+
+.bulkBar {
+  position: sticky;
+  top: calc(var(--topbar-height) + 18px);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 20px;
+  color: #ffffff;
+  background: rgba(15, 23, 42, 0.94);
+  box-shadow: var(--shadow-md);
+}
+
+.drawerOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  justify-content: flex-end;
+  background: rgba(15, 23, 42, 0.42);
+  backdrop-filter: blur(6px);
+}
+
+.drawer {
+  width: min(720px, 100%);
+  height: 100vh;
+  overflow: auto;
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  padding: 22px;
+  background: var(--bg);
+  border-left: 1px solid var(--border);
+  box-shadow: -24px 0 70px rgba(15, 23, 42, 0.2);
+}
+
+.drawerHeader {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: flex-start;
+  padding-bottom: 14px;
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(12px);
+}
+
+@media (max-width: 1180px) {
+  .contactGrid,
+  .tagGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .gridTwo,
+  .contactGrid,
+  .tagGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .bulkBar {
+    position: static;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .search {
+    max-width: none;
+  }
+
+  .drawer {
+    width: 100%;
+  }
+
+  .drawerHeader {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+/* =========================================================
+   CONTACTS COMPONENT RESTORE
+   Temporary compatibility for contacts/CDP child classes.
+========================================================= */
+
+:global(.cdpTabs) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+:global(.cdpTabs button),
+:global(.cdpBulkBar button),
+:global(.cdpDrawer button),
+:global(.contactActions button) {
+  min-height: 40px;
+  border: 0;
+  border-radius: 14px;
+  padding: 10px 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #ffffff;
+  background: linear-gradient(135deg, var(--primary), #2563eb);
+  cursor: pointer;
+  font-size: 0.88rem;
+  font-weight: 900;
+  box-shadow: 0 12px 26px color-mix(in srgb, var(--primary) 22%, transparent);
+}
+
+:global(.cdpTabs button[type="button"]),
+:global(.cdpDrawer button[type="button"]),
+:global(.contactActions button[type="button"]) {
+  color: var(--text-soft);
+  background: var(--surface-solid);
+  border: 1px solid var(--border);
+  box-shadow: none;
+}
+
+:global(.cdpTabs button:hover),
+:global(.cdpDrawer button:hover),
+:global(.contactActions button:hover) {
+  color: var(--primary);
+  background: var(--primary-soft);
+}
+
+:global(.cdpSearch) {
+  max-width: 360px;
+}
+
+:global(.cdpGridTwo) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+:global(.cdpContactGrid),
+:global(.cdpTagGrid) {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+:global(.cdpContactCard),
+:global(.cdpTagCard) {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 22px;
+  background: var(--surface-solid);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  transition: 0.18s ease;
+}
+
+:global(.cdpContactCard:hover) {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--primary) 40%, transparent);
+  box-shadow: var(--shadow-md);
+}
+
+:global(.cdpContactTop) {
+  display: grid;
+  grid-template-columns: 22px 46px 1fr;
+  gap: 12px;
+  align-items: center;
+}
+
+:global(.cdpAvatar) {
+  width: 46px;
+  height: 46px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  color: #ffffff;
+  font-weight: 900;
+  background: linear-gradient(135deg, var(--primary), #2563eb);
+}
+
+:global(.cdpMiniInfo) {
+  display: grid;
+  gap: 4px;
+}
+
+:global(.cdpMiniInfo p) {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+:global(.cdpTagDot) {
+  width: 28px;
+  height: 28px;
+  display: inline-block;
+  border-radius: 999px;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 0 1px var(--border);
+}
+
+:global(.cdpTags),
+:global(.cdpContactMeta),
+:global(.cdpCardMeta),
+:global(.cdpCustomPreview) {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+:global(.cdpTags span),
+:global(.cdpContactMeta span),
+:global(.cdpCardMeta span),
+:global(.cdpCustomPreview span) {
+  padding: 6px 9px;
+  border-radius: 999px;
+  color: var(--muted);
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+:global(.cdpBulkBar) {
+  position: sticky;
+  top: calc(var(--topbar-height) + 18px);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 20px;
+  color: #ffffff;
+  background: rgba(15, 23, 42, 0.94);
+  box-shadow: var(--shadow-md);
+}
+
+:global(.cdpDrawerOverlay) {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  justify-content: flex-end;
+  background: rgba(15, 23, 42, 0.42);
+  backdrop-filter: blur(6px);
+}
+
+:global(.cdpDrawer) {
+  width: min(720px, 100%);
+  height: 100vh;
+  overflow: auto;
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  padding: 22px;
+  background: var(--bg);
+  border-left: 1px solid var(--border);
+  box-shadow: -24px 0 70px rgba(15, 23, 42, 0.2);
+}
+
+:global(.cdpDrawerHeader) {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: flex-start;
+  padding-bottom: 14px;
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(12px);
+}
+
+:global(.cdpDrawer label) {
+  display: grid;
+  gap: 7px;
+  color: var(--text-soft);
+  font-size: 0.88rem;
+  font-weight: 800;
+}
+
+:global(.cdpDrawer input),
+:global(.cdpDrawer select),
+:global(.cdpDrawer textarea) {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 15px;
+  padding: 12px 14px;
+  color: var(--text);
+  background: var(--surface-solid);
+  outline: none;
+}
+
+@media (max-width: 1180px) {
+  :global(.cdpContactGrid),
+  :global(.cdpTagGrid) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  :global(.cdpGridTwo),
+  :global(.cdpContactGrid),
+  :global(.cdpTagGrid) {
+    grid-template-columns: 1fr;
+  }
+
+  :global(.cdpBulkBar) {
+    position: static;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  :global(.cdpSearch) {
+    max-width: none;
+  }
+
+  :global(.cdpDrawer) {
+    width: 100%;
+  }
+
+  :global(.cdpDrawerHeader) {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+/* =========================================================
+   PAGE BUTTON COLOR NORMALIZER
+========================================================= */
+
+:global(.primaryButton),
+:global(.buttonLink),
+:global(button.primaryButton) {
+  color: #ffffff !important;
+  background: linear-gradient(135deg, var(--primary), #2563eb) !important;
+  border: 0 !important;
+  box-shadow: 0 12px 26px color-mix(in srgb, var(--primary) 22%, transparent) !important;
+}
+
+:global(.primaryButton:hover),
+:global(.buttonLink:hover),
+:global(button.primaryButton:hover) {
+  color: #ffffff !important;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--primary) 88%, #000000),
+    #1d4ed8
+  ) !important;
+}
+
+:global(.secondaryButton),
+:global(.ghostButton),
+:global(.smallButton) {
+  color: var(--text-soft) !important;
+  background: var(--surface-solid) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: none !important;
+}
+
+:global(.secondaryButton:hover),
+:global(.ghostButton:hover),
+:global(.smallButton:hover) {
+  color: var(--primary) !important;
+  background: var(--primary-soft) !important;
+}
+
+:global(.dangerButton) {
+  color: #ffffff !important;
+  background: var(--danger) !important;
+}
+
+:global(.dangerSmall) {
+  color: var(--danger) !important;
+  background: var(--danger-soft) !important;
+}

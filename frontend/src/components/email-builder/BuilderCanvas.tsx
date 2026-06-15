@@ -1,0 +1,83 @@
+"use client";
+
+import {
+  DndContext,
+  DragEndEvent,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  rectSortingStrategy,
+} from "@dnd-kit/sortable";
+
+import { EmailBlock } from "./types";
+import { SortableEmailBlock } from "./SortableEmailBlock";
+import styles from "./EmailBuilder.module.css";
+
+type Props = {
+  blocks: EmailBlock[];
+  selectedBlockId: string | null;
+  onSelectBlock: (id: string) => void;
+  onDeleteBlock: (id: string) => void;
+  onReorder: (blocks: EmailBlock[]) => void;
+};
+
+export function BuilderCanvas({
+  blocks,
+  selectedBlockId,
+  onSelectBlock,
+  onDeleteBlock,
+  onReorder,
+}: Props) {
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 6 },
+    }),
+  );
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = blocks.findIndex((block) => block.id === active.id);
+    const newIndex = blocks.findIndex((block) => block.id === over.id);
+
+    onReorder(arrayMove(blocks, oldIndex, newIndex));
+  }
+
+  return (
+    <section className={`${styles.canvas} builderCanvas`}>
+      <div className="builderCanvasHeader">
+        <h3>3-Column Email Canvas</h3>
+        <p className="muted">Blocks can span 1, 2, or all 3 columns.</p>
+      </div>
+
+      <div className="emailCanvasFrame gridCanvas">
+        {blocks.length === 0 ? (
+          <div className={`${styles.emptyCanvas} emptyCanvas`}>Add a block to start designing.</div>
+        ) : (
+          <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+            <SortableContext
+              items={blocks.map((block) => block.id)}
+              strategy={rectSortingStrategy}
+            >
+              {blocks.map((block) => (
+                <SortableEmailBlock
+                  key={block.id}
+                  block={block}
+                  selected={selectedBlockId === block.id}
+                  onSelect={() => onSelectBlock(block.id)}
+                  onDelete={() => onDeleteBlock(block.id)}
+                />
+              ))}
+            </SortableContext>
+          </DndContext>
+        )}
+      </div>
+    </section>
+  );
+}

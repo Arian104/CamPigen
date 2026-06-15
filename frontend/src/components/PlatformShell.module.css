@@ -1,0 +1,31 @@
+/* =========================================================
+   PLATFORM SHELL MODULE
+   Authenticated app wrapper and content spacing.
+========================================================= */
+
+.shell {
+  min-height: 100vh;
+  padding-top: var(--topbar-height);
+}
+
+.content {
+  min-height: calc(100vh - var(--topbar-height));
+  margin-left: var(--sidebar-width);
+  transition: margin-left 0.22s ease;
+}
+
+.collapsed .content {
+  margin-left: var(--sidebar-collapsed-width);
+}
+
+@media (max-width: 760px) {
+  .shell {
+    padding-top: var(--topbar-height);
+    padding-bottom: 74px;
+  }
+
+  .content,
+  .collapsed .content {
+    margin-left: 0;
+  }
+}

@@ -1,0 +1,104 @@
+"use client";
+
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { ArrowRight, CheckCircle2, MailCheck, Sparkles, XCircle } from "lucide-react";
+
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000/api";
+
+export default function VerifyEmailPage() {
+  const searchParams = useSearchParams();
+  const token = searchParams.get("token");
+
+  const [status, setStatus] = useState<"loading" | "success" | "failed">("loading");
+  const [message, setMessage] = useState("Verifying your email address...");
+
+  useEffect(() => {
+    async function verify() {
+      if (!token) {
+        setStatus("failed");
+        setMessage("Verification token is missing.");
+        return;
+      }
+
+      const response = await fetch(`${API_BASE.replace(/\/$/, "")}/v1/accounts/verify-email/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ token }),
+      });
+
+      const body = await response.json().catch(() => null);
+
+      if (response.ok) {
+        setStatus("success");
+        setMessage(body?.message || "Email verified successfully.");
+      } else {
+        setStatus("failed");
+        setMessage(body?.message || "Email verification failed.");
+      }
+    }
+
+    void verify();
+  }, [token]);
+
+  const success = status === "success";
+
+  return (
+    <main className="authPage">
+      <section className="authShell compact">
+        <aside className="authBrandPanel">
+          <div className="authBrandTop">
+            <div className="brandMark authBrandMark">EP</div>
+            <div>
+              <strong>Email Platform</strong>
+              <span>Email verification</span>
+            </div>
+          </div>
+
+          <div className="authBrandContent">
+            <div className="authBadge">
+              <Sparkles size={15} />
+              Account protection
+            </div>
+
+            <h1>Verify your email to secure your account.</h1>
+
+            <p>
+              Verified accounts can receive security alerts, password reset emails,
+              and trusted workspace notifications.
+            </p>
+          </div>
+        </aside>
+
+        <section className="authFormPanel">
+          <div className={success ? "authStatusIcon success" : "authStatusIcon failed"}>
+            {status === "loading" ? (
+              <MailCheck size={34} />
+            ) : success ? (
+              <CheckCircle2 size={34} />
+            ) : (
+              <XCircle size={34} />
+            )}
+          </div>
+
+          <div className="authFormHeader center">
+            <div>
+              <p className="eyebrow">Email Verification</p>
+              <h2>{success ? "Email verified" : status === "loading" ? "Verifying..." : "Verification failed"}</h2>
+              <p className="muted">{message}</p>
+            </div>
+          </div>
+
+          <Link href="/login" className="authSubmitButton">
+            Go to login
+            <ArrowRight size={17} />
+          </Link>
+        </section>
+      </section>
+    </main>
+  );
+}

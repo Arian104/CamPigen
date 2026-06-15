@@ -1,0 +1,273 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+
+import { usePlatform } from "@/components/platform-context";
+import { SocialLinksSection } from "@/components/organization-settings/SocialLinksSection";
+import { OrganizationHeader } from "@/components/organization-settings/OrganizationHeader";
+import { OrganizationTabs } from "@/components/organization-settings/OrganizationTabs";
+import { emptyOrg, buildOrganizationPayload } from "@/components/organization-settings/defaults";
+import { OrganizationTabKey } from "@/components/organization-settings/tabs";
+import { Member, Organization, Preset } from "@/components/organization-settings/types";
+
+import { ProfileSection } from "@/components/organization-settings/sections/ProfileSection";
+import { BrandingSection } from "@/components/organization-settings/sections/BrandingSection";
+import { CampaignDefaultsSection } from "@/components/organization-settings/sections/CampaignDefaultsSection";
+import { ComplianceSection } from "@/components/organization-settings/sections/ComplianceSection";
+import { TeamMembersSection } from "@/components/organization-settings/sections/TeamMembersSection";
+import { PresetsSection } from "@/components/organization-settings/sections/PresetsSection";
+import { PlanAccessSection } from "@/components/organization-settings/sections/PlanAccessSection";
+
+export default function OrganizationSettingsPage() {
+  const { request } = usePlatform();
+
+  const [activeTab, setActiveTab] = useState<OrganizationTabKey>("profile");
+  const [organization, setOrganization] = useState<Organization>(emptyOrg());
+  const [members, setMembers] = useState<Member[]>([]);
+  const [presets, setPresets] = useState<Preset[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  const [statusMessage, setStatusMessage] = useState("");
+  const [newMemberEmail, setNewMemberEmail] = useState("");
+  const [newMemberRole, setNewMemberRole] = useState("viewer");
+
+  const selectedPreset = useMemo(() => {
+    return presets.find((preset) => preset.key === organization.contact_schema_preset);
+  }, [presets, organization.contact_schema_preset]);
+
+  function updateField<K extends keyof Organization>(key: K, value: Organization[K]) {
+    setOrganization((current) => ({
+      ...current,
+      [key]: value,
+    }));
+  }
+
+  async function loadAll() {
+    setLoading(true);
+    setStatusMessage("");
+
+    try {
+      const [orgRes, memberRes, presetRes] = await Promise.all([
+        request("/v1/organizations/current/"),
+        request("/v1/organizations/current/members/"),
+        request("/v1/organizations/presets/"),
+      ]);
+
+      if (orgRes.ok && orgRes.body) {
+        setOrganization({ ...emptyOrg(), ...(orgRes.body as Organization) });
+      }
+
+      if (memberRes.ok && Array.isArray(memberRes.body)) {
+        setMembers(memberRes.body as Member[]);
+      }
+
+      if (
+        presetRes.ok &&
+        typeof presetRes.body === "object" &&
+        presetRes.body !== null &&
+        "presets" in presetRes.body
+      ) {
+        setPresets((presetRes.body as { presets: Preset[] }).presets);
+      }
+    } catch {
+      setStatusMessage("Could not load organization settings.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function saveOrganization() {
+    setSaving(true);
+    setStatusMessage("");
+
+    try {
+      const res = await request("/v1/organizations/current/", {
+        method: "PATCH",
+        body: JSON.stringify(buildOrganizationPayload(organization)),
+      });
+
+      if (!res.ok) {
+        setStatusMessage("Save failed. Check your role permission or backend response.");
+        return;
+      }
+
+      setOrganization({ ...emptyOrg(), ...(res.body as Organization) });
+      setStatusMessage("Organization settings saved.");
+    } catch {
+      setStatusMessage("Save failed. Backend may be unreachable.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function addMember() {
+    if (!newMemberEmail.trim()) {
+      setStatusMessage("Member email is required.");
+      return;
+    }
+
+    const res = await request("/v1/organizations/current/members/", {
+      method: "POST",
+      body: JSON.stringify({
+        user_email: newMemberEmail.trim(),
+        role: newMemberRole,
+      }),
+    });
+
+    if (!res.ok) {
+      setStatusMessage("Could not add member. User must already exist in the system.");
+      return;
+    }
+
+    setNewMemberEmail("");
+    setNewMemberRole("viewer");
+    setStatusMessage("Member added.");
+    await loadAll();
+  }
+
+  async function updateMember(memberId: string, role: string) {
+    const res = await request(`/v1/organizations/current/members/${memberId}/`, {
+      method: "PATCH",
+      body: JSON.stringify({ role }),
+    });
+
+    if (!res.ok) {
+      setStatusMessage("Could not update member role.");
+      return;
+    }
+
+    setStatusMessage("Member role updated.");
+    await loadAll();
+  }
+
+  async function removeMember(memberId: string) {
+    const confirmed = window.confirm("Remove this member from the organization?");
+    if (!confirmed) return;
+
+    const res = await request(`/v1/organizations/current/members/${memberId}/`, {
+      method: "DELETE",
+    });
+
+    if (!res.ok) {
+      setStatusMessage("Could not remove member. Last owner cannot be removed.");
+      return;
+    }
+
+    setStatusMessage("Member removed.");
+    await loadAll();
+  }
+
+  async function applyPreset() {
+    if (!organization.contact_schema_preset || organization.contact_schema_preset === "custom") {
+      setStatusMessage("Select a preset first.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Apply this CDP preset? It may create contact fields, tags, and lists.",
+    );
+
+    if (!confirmed) return;
+
+    const res = await request("/v1/organizations/apply-preset/", {
+      method: "POST",
+      body: JSON.stringify({
+        preset_key: organization.contact_schema_preset,
+      }),
+    });
+
+    if (!res.ok) {
+      setStatusMessage("Could not apply preset.");
+      return;
+    }
+
+    setStatusMessage("Preset applied successfully.");
+    await loadAll();
+  }
+
+  useEffect(() => {
+    void loadAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  if (loading) {
+    return (
+      <main className="page">
+        <section className="card">
+          <h1>Organization Settings</h1>
+          <p className="muted">Loading organization control center...</p>
+        </section>
+      </main>
+    );
+  }
+
+  return (
+    <main className="page">
+      <OrganizationHeader
+        saving={saving}
+        onRefresh={() => void loadAll()}
+        onSave={() => void saveOrganization()}
+      />
+
+      {statusMessage ? (
+        <section className="card noticeCard">
+          <p>{statusMessage}</p>
+        </section>
+      ) : null}
+
+      <section className="card orgShell">
+        <OrganizationTabs activeTab={activeTab} setActiveTab={setActiveTab} />
+
+        <div className="orgPanel">
+          {activeTab === "profile" ? (
+            <ProfileSection organization={organization} updateField={updateField} />
+          ) : null}
+
+          {activeTab === "branding" ? (
+            <BrandingSection organization={organization} updateField={updateField} />
+          ) : null}
+
+          {activeTab === "campaign" ? (
+            <CampaignDefaultsSection organization={organization} updateField={updateField} />
+          ) : null}
+
+          {activeTab === "social" ? (
+            <SocialLinksSection organization={organization} updateField={updateField} />
+          ) : null}
+
+          {activeTab === "compliance" ? (
+            <ComplianceSection organization={organization} updateField={updateField} />
+          ) : null}
+
+          {activeTab === "team" ? (
+            <TeamMembersSection
+              members={members}
+              newMemberEmail={newMemberEmail}
+              setNewMemberEmail={setNewMemberEmail}
+              newMemberRole={newMemberRole}
+              setNewMemberRole={setNewMemberRole}
+              addMember={() => void addMember()}
+              updateMember={(memberId, role) => void updateMember(memberId, role)}
+              removeMember={(memberId) => void removeMember(memberId)}
+            />
+          ) : null}
+
+          {activeTab === "presets" ? (
+            <PresetsSection
+              organization={organization}
+              presets={presets}
+              selectedPreset={selectedPreset}
+              updateField={updateField}
+              applyPreset={() => void applyPreset()}
+            />
+          ) : null}
+
+          {activeTab === "plan" ? (
+            <PlanAccessSection organization={organization} />
+          ) : null}
+        </div>
+      </section>
+    </main>
+  );
+}
