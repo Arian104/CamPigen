@@ -5,6 +5,16 @@ A multi-tenant email marketing and delivery platform built with **Django**, **Dj
 The platform supports organizations, contacts, contact lists, campaign templates, scheduled campaigns, instant sending, SMTP pools, tracked links, webhooks, and analytics foundations.
 
 ---
+### Login
+![Login](docs/login.png)
+
+
+### Dashboard
+![Dashboard Overview](docs/dashboard-overview.png)
+
+
+### Dashboard Dark Mode
+![Dashboard Dark](docs/dashboard-dark.png)
 
 ## 1. Tech Stack
 
@@ -68,6 +78,9 @@ email_platform/
 * Contact list memberships
 * Custom contact fields
 
+### Contacts
+![Contacts](docs/contacts.png)
+
 ### Campaign Management
 
 * Campaign creation
@@ -78,6 +91,9 @@ email_platform/
 * Local time to UTC conversion
 * Campaign status tracking
 
+### Campaign Studio
+![Campaign Studio](docs/campaign-studio.png)
+
 ### Email Engine
 
 * Email job queue
@@ -87,6 +103,9 @@ email_platform/
 * Retry logic
 * Delivery status tracking
 
+### Email Builder
+![Email Builder](docs/email-builder.png)
+
 ### SMTP Management
 
 * Multiple SMTP configurations
@@ -95,6 +114,9 @@ email_platform/
 * TLS/SSL options
 * SMTP health monitoring
 
+### SMTP Management
+![SMTP Management](docs/smtp-management.png)
+
 ### Links
 
 * Tracked redirect links
@@ -102,12 +124,18 @@ email_platform/
 * Campaign/contact/email-job relationship
 * Analytics support
 
+### Links
+![Links](docs/tracked-links.png)
+
 ### Webhooks
 
 * Webhook configuration
 * Event delivery
 * Retry tracking
 * CRM, Zapier, Make, Slack, ERP, and dashboard integration support
+
+### Webhooks
+![Webhooks](docs/webhooks.png)
 
 ### Analytics
 
